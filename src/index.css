@@ -519,21 +519,72 @@ html {
 }
 
 /* ═══════════════════════════════════════
-   MOBILE TOGGLE
+   MOBILE TOP NAVBAR (hidden on desktop)
    ═══════════════════════════════════════ */
-.menu-toggle {
-  display: none;
+.mobile-navbar {
+  display: none;             /* hidden on desktop */
   position: fixed;
-  top: 1rem;
-  left: 1rem;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
   z-index: 50;
   background: var(--bg-white);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
+  padding: 0 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mobile-navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+
+.mobile-navbar-logo {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+}
+
+.mobile-navbar-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.mobile-navbar-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.mobile-navbar-subtitle {
+  font-size: 0.7rem;
+  color: var(--text-light);
+  letter-spacing: 0.03em;
+}
+
+.mobile-navbar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  padding: 0.625rem;
-  font-size: 1.25rem;
+  background: var(--bg-light);
+  color: var(--text-dark);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+}
+
+.mobile-navbar-toggle:hover {
+  background: var(--hover-bg);
+  color: var(--primary-color);
 }
 
 .mobile-overlay {
@@ -548,12 +599,14 @@ html {
    RESPONSIVE
    ═══════════════════════════════════════ */
 @media (max-width: 768px) {
-  .menu-toggle {
-    display: block;
+  .mobile-navbar {
+    display: flex;              /* show navbar on mobile */
   }
 
   .sidebar {
     transform: translateX(-100%);
+    top: 60px;                  /* start below the navbar */
+    height: calc(100vh - 60px); /* fill remaining height */
   }
 
   .sidebar.open {
@@ -566,10 +619,11 @@ html {
 
   .main-content {
     margin-left: 0;
+    padding-top: 60px;          /* push content below navbar */
   }
 
   .content-section {
-    padding: 4rem 1.25rem 2rem;
+    padding: 2rem 1.25rem;
   }
 
   .features-grid {
@@ -583,7 +637,7 @@ html {
   }
 
   .content-section {
-    padding: 4rem 1rem 1.5rem;
+    padding: 1.5rem 1rem;
   }
 }
 

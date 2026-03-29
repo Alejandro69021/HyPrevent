@@ -79,14 +79,36 @@ export default function Sidebar({ activePage, onNavigate }) {
 
     return (
         <>
-            {/* Mobile hamburger */}
-            <button
-                className="menu-toggle"
-                aria-label="Toggle menu"
-                onClick={() => setMobileOpen(!mobileOpen)}
-            >
-                ☰
-            </button>
+            {/* ── Mobile Top Navbar ── */}
+            <header className="mobile-navbar">
+                <div className="mobile-navbar-brand" onClick={() => handleNav('home')}>
+                    <img src="/HyPrevent.png" alt="HyPrevent Logo" className="mobile-navbar-logo" />
+                    <div className="mobile-navbar-text">
+                        <span className="mobile-navbar-title">HyPrevent</span>
+                        <span className="mobile-navbar-subtitle">Strength to Prevent</span>
+                    </div>
+                </div>
+                <button
+                    className="mobile-navbar-toggle"
+                    aria-label="Toggle menu"
+                    onClick={() => setMobileOpen(!mobileOpen)}
+                >
+                    <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                        {mobileOpen ? (
+                            <>
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                            </>
+                        ) : (
+                            <>
+                                <line x1="3" y1="6" x2="21" y2="6" />
+                                <line x1="3" y1="12" x2="21" y2="12" />
+                                <line x1="3" y1="18" x2="21" y2="18" />
+                            </>
+                        )}
+                    </svg>
+                </button>
+            </header>
 
             {/* Mobile overlay */}
             {mobileOpen && (
