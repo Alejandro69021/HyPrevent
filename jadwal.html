@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyprevent - Platform Edukasi Kesehatan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 flex h-screen overflow-hidden">
+
+    <aside class="w-64 bg-white border-r border-gray-200 h-full flex flex-col hidden md:flex">
+        <div class="p-6">
+            <h1 class="text-2xl font-bold text-teal-600">Hyprevent</h1>
+            <p class="text-xs text-gray-400 mt-1">Pencegahan Hipertensi</p>
+        </div>
+        <nav class="flex-1 px-4 space-y-2 mt-4">
+            <a href="#"
+                class="flex items-center px-4 py-3 bg-teal-50 text-teal-700 rounded-lg font-semibold transition-colors">
+                <span class="mr-3">🏠</span> Home
+            </a>
+            <a href="#" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+                <span class="mr-3">📖</span> Modul 1: Penjelasan
+            </a>
+        </nav>
+    </aside>
+
+    <main class="flex-1 h-full overflow-y-auto p-8">
+
+        <header class="max-w-4xl mb-12">
+            <h2 class="text-3xl font-bold text-slate-800 mb-4">Mulai Perjalanan Sehatmu</h2>
+            <p class="text-slate-600 leading-relaxed text-lg">
+                Pelajari cara mencegah hipertensi dan jadwalkan rutinitas sehatmu langsung dari platform ini.
+            </p>
+        </header>
+
+        <section class="max-w-3xl bg-white p-8 rounded-2xl shadow-sm border border-gray-100 mb-12">
+            <h3 class="text-xl font-bold text-slate-800 mb-2">Asisten Jadwal Latihan</h3>
+            <p class="text-slate-500 text-sm mb-6">Ketik jadwal olahraga yang ingin kamu lakukan, dan asisten kami akan
+                menyiapkannya untuk kalendermu.</p>
+
+            <div class="flex gap-4 mb-8">
+                <input type="text" id="userInput" placeholder="Contoh: Ingatkan saya jalan santai besok jam 6 pagi..."
+                    class="flex-1 bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all">
+                <button id="submitBtn"
+                    class="bg-teal-600 hover:bg-teal-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors">
+                    Buat Jadwal
+                </button>
+            </div>
+
+            <div id="resultCard" class="hidden bg-teal-50 rounded-xl p-6 border border-teal-100">
+                <div class="flex items-start gap-4">
+                    <div
+                        class="w-10 h-10 bg-teal-200 text-teal-700 rounded-full flex items-center justify-center font-bold">
+                        AI</div>
+                    <div class="flex-1">
+                        <p class="text-slate-700 mb-4">Jadwal berhasil disiapkan! Silakan simpan ke perangkatmu:</p>
+
+                        <div class="flex flex-wrap gap-3">
+                            <button onclick="bukaGoogleCalendar()"
+                                class="bg-white border border-gray-200 text-slate-700 hover:bg-gray-50 font-medium px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-all">
+                                📅 Simpan ke Google Calendar
+                            </button>
+                            <button onclick="downloadICS()"
+                                class="bg-white border border-gray-200 text-slate-700 hover:bg-gray-50 font-medium px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-all">
+                                📱 Simpan ke Kalender HP (.ics)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // 1. Logika untuk memunculkan hasil setelah tombol diklik
+        document.getElementById('submitBtn').addEventListener('click', function () {
+            const inputVal = document.getElementById('userInput').value;
+            if (inputVal.trim() !== "") {
+                // Tampilkan kotak hasil
+                document.getElementById('resultCard').classList.remove('hidden');
+            } else {
+                alert("Silakan ketik jadwalmu terlebih dahulu!");
+            }
+        });
+
+        // 2. Data Simulasi (Nantinya data ini didapat dari AI sungguhan)
+        const eventData = {
+            title: "Latihan Pencegahan Hipertensi",
+            startDate: "20260330T000000Z", // Format waktu UTC
+            endDate: "20260330T003000Z",
+            description: "Jadwal latihan dari platform edukasi Hyprevent."
+        };
+
+        // 3. Fungsi Tombol Google Calendar
+        function bukaGoogleCalendar() {
+            const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventData.title)}&dates=${eventData.startDate}/${eventData.endDate}&details=${encodeURIComponent(eventData.description)}`;
+            window.open(url, '_blank');
+        }
+
+        // 4. Fungsi Tombol Kalender HP (.ics file)
+        function downloadICS() {
+            const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:${eventData.startDate}
+DTEND:${eventData.endDate}
+SUMMARY:${eventData.title}
+DESCRIPTION:${eventData.description}
+END:VEVENT
+END:VCALENDAR`;
+
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.setAttribute('download', 'jadwal_hyprevent.ics');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+
+</html>

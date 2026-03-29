@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Workout Scheduler — Hyprevent</title>
+  <meta name="description" content="Jadwalkan latihan Anda dengan AI dan simpan otomatis ke Google Calendar atau kalender HP." />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            primary: {
+              50: '#f0fdfa',
+              100: '#ccfbf1',
+              200: '#99f6e4',
+              300: '#5eead4',
+              400: '#2dd4bf',
+              500: '#14b8a6',
+              600: '#0d9488',
+              700: '#0f766e',
+              800: '#115e59',
+              900: '#134e4a',
+            },
+          },
+          keyframes: {
+            'fade-in-up': {
+              '0%': { opacity: '0', transform: 'translateY(20px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            'pulse-ring': {
+              '0%': { transform: 'scale(0.8)', opacity: '0.5' },
+              '50%': { transform: 'scale(1)', opacity: '0.3' },
+              '100%': { transform: 'scale(0.8)', opacity: '0.5' },
+            },
+            'typing-dot': {
+              '0%, 80%, 100%': { transform: 'scale(0)', opacity: '0.4' },
+              '40%': { transform: 'scale(1)', opacity: '1' },
+            },
+            shimmer: {
+              '0%': { backgroundPosition: '-200% 0' },
+              '100%': { backgroundPosition: '200% 0' },
+            },
+          },
+          animation: {
+            'fade-in-up': 'fade-in-up 0.5s ease-out both',
+            'fade-in-up-delay': 'fade-in-up 0.5s ease-out 0.15s both',
+            'pulse-ring': 'pulse-ring 2s ease-in-out infinite',
+            shimmer: 'shimmer 2s linear infinite',
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- Google Fonts — Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    ::-webkit-scrollbar-track { background: #f8fafc; }
+
+    /* Typing dots */
+    .typing-dot { animation: typing-dot 1.4s ease-in-out infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes typing-dot {
+      0%, 80%, 100% { transform: scale(0); opacity: 0.4; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Shimmer for loading */
+    .shimmer-bg {
+      background: linear-gradient(90deg, #f0fdfa 25%, #ccfbf1 50%, #f0fdfa 75%);
+      background-size: 200% 100%;
+      animation: shimmer 2s linear infinite;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    /* Glassmorphism card */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    /* Gradient orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      pointer-events: none;
+      filter: blur(80px);
+      opacity: 0.45;
+      z-index: 0;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-slate-50 font-sans text-slate-800 antialiased relative overflow-x-hidden">
+
+  <!-- Decorative gradient orbs -->
+  <div class="orb w-[420px] h-[420px] bg-gradient-to-br from-primary-300/30 to-primary-500/10 -top-32 -right-24"></div>
+  <div class="orb w-[350px] h-[350px] bg-gradient-to-tr from-emerald-300/20 to-teal-400/10 bottom-10 -left-20"></div>
+
+  <!-- Main Container -->
+  <div class="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 py-10 md:py-16">
+
+    <!-- ─── Header ─── -->
+    <header class="text-center mb-10 animate-[fade-in-up_0.5s_ease-out_both]">
+      <!-- Logo pill -->
+      <div class="inline-flex items-center gap-2 bg-primary-100/70 text-primary-700 rounded-full px-4 py-1.5 mb-4 shadow-sm border border-primary-200/50">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        <span class="text-xs font-semibold tracking-wide uppercase">Hyprevent AI</span>
+      </div>
+
+      <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 leading-tight mb-2">
+        Smart Workout<br />
+        <span class="bg-gradient-to-r from-primary-600 to-emerald-500 bg-clip-text text-transparent">Scheduler</span>
+      </h1>
+      <p class="text-slate-500 text-sm md:text-base max-w-md mx-auto leading-relaxed">
+        Ketik jadwal latihan Anda. AI akan membantu menjadwalkannya ke kalender secara otomatis.
+      </p>
+    </header>
+
+    <!-- ─── Chat Input Section ─── -->
+    <section id="chat-section" class="mb-8 animate-[fade-in-up_0.5s_ease-out_0.1s_both]">
+      <div class="glass-card rounded-2xl border border-white/60 shadow-lg shadow-slate-200/40 p-5 sm:p-6">
+        <!-- Label -->
+        <label for="workout-input" class="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
+          <span class="flex items-center justify-center w-6 h-6 rounded-lg bg-primary-100 text-primary-600">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M8 10h.01M12 10h.01M16 10h.01M9 16h6M21 12c0 4.97-4.03 9-9 9a9.003 9.003 0 01-4.382-1.143L3 21l1.143-4.618A9.003 9.003 0 013 12c0-4.97 4.03-9 9-9s9 4.03 9 9z" />
+            </svg>
+          </span>
+          Ceritakan rencana latihan Anda
+        </label>
+
+        <!-- Textarea -->
+        <div class="relative">
+          <textarea id="workout-input" rows="3"
+            class="w-full resize-none rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 shadow-inner focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 transition-all duration-200"
+            placeholder="Contoh: Ingatkan saya untuk jalan santai besok jam 6 pagi selama 30 menit"></textarea>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="flex justify-end mt-3">
+          <button id="submit-btn" onclick="handleSubmit()"
+            class="group inline-flex items-center gap-2 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-md shadow-primary-500/20 hover:shadow-lg hover:shadow-primary-500/30 active:scale-[0.97] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-400/50">
+            <svg class="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor" stroke-width="2.2">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+            </svg>
+            Jadwalkan
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── Typing Indicator (hidden by default) ─── -->
+    <div id="typing-indicator" class="hidden mb-6">
+      <div class="flex items-center gap-3 px-5 py-3">
+        <div class="flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 shrink-0">
+          <svg class="w-4 h-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+          </svg>
+        </div>
+        <div class="flex gap-1.5">
+          <span class="typing-dot w-2 h-2 rounded-full bg-primary-400 inline-block"></span>
+          <span class="typing-dot w-2 h-2 rounded-full bg-primary-400 inline-block"></span>
+          <span class="typing-dot w-2 h-2 rounded-full bg-primary-400 inline-block"></span>
+        </div>
+        <span class="text-xs text-slate-400 ml-1">AI sedang menganalisis...</span>
+      </div>
+    </div>
+
+    <!-- ─── AI Response Card (hidden by default) ─── -->
+    <section id="response-card" class="hidden">
+      <div class="glass-card rounded-2xl border border-white/60 shadow-xl shadow-slate-200/30 overflow-hidden animate-[fade-in-up_0.5s_ease-out_both]">
+
+        <!-- Card Header -->
+        <div class="bg-gradient-to-r from-primary-600 to-primary-500 px-5 sm:px-6 py-4">
+          <div class="flex items-center gap-3">
+            <div class="flex items-center justify-center w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm">
+              <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+            </div>
+            <div>
+              <h2 class="text-white font-bold text-sm">Jadwal Latihan Anda</h2>
+              <p class="text-primary-100 text-xs">Dianalisis oleh Hyprevent AI</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card Body -->
+        <div class="px-5 sm:px-6 py-5">
+          <!-- Parsed Schedule Details -->
+          <div class="space-y-3 mb-6">
+            <!-- Title -->
+            <div class="flex items-start gap-3 p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+              <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-primary-100 text-primary-600 shrink-0 mt-0.5">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" />
+                </svg>
+              </div>
+              <div>
+                <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Aktivitas</p>
+                <p id="res-title" class="text-sm font-bold text-slate-800 mt-0.5">—</p>
+              </div>
+            </div>
+
+            <!-- Date & Time -->
+            <div class="grid grid-cols-2 gap-3">
+              <div class="flex items-start gap-3 p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 shrink-0 mt-0.5">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Tanggal</p>
+                  <p id="res-date" class="text-sm font-bold text-slate-800 mt-0.5">—</p>
+                </div>
+              </div>
+
+              <div class="flex items-start gap-3 p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-violet-100 text-violet-600 shrink-0 mt-0.5">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Waktu</p>
+                  <p id="res-time" class="text-sm font-bold text-slate-800 mt-0.5">—</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Description -->
+            <div class="flex items-start gap-3 p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+              <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 text-amber-600 shrink-0 mt-0.5">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+              </div>
+              <div>
+                <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Keterangan</p>
+                <p id="res-desc" class="text-sm text-slate-600 mt-0.5 leading-relaxed">—</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Divider -->
+          <div class="flex items-center gap-3 mb-5">
+            <div class="flex-1 h-px bg-slate-200"></div>
+            <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Simpan Jadwal</span>
+            <div class="flex-1 h-px bg-slate-200"></div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex flex-col sm:flex-row gap-3">
+            <!-- Google Calendar Button -->
+            <button id="btn-gcal" onclick="saveToGoogleCalendar()"
+              class="flex-1 group inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-md shadow-primary-500/20 hover:shadow-lg hover:shadow-primary-500/30 active:scale-[0.97] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-400/50">
+              <!-- Google Calendar icon -->
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="4" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.8" />
+                <path d="M3 9h18" stroke="currentColor" stroke-width="1.8" />
+                <path d="M8 2v4M16 2v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                <path d="M8 13h2v2H8zM14 13h2v2h-2z" fill="currentColor" />
+              </svg>
+              Simpan ke Google Calendar
+              <svg class="w-3.5 h-3.5 opacity-60 transition-transform group-hover:translate-x-0.5" fill="none"
+                viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+              </svg>
+            </button>
+
+            <!-- ICS Download Button -->
+            <button id="btn-ics" onclick="saveToICS()"
+              class="flex-1 group inline-flex items-center justify-center gap-2.5 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold px-5 py-3 rounded-xl border-2 border-slate-200 hover:border-primary-300 shadow-sm hover:shadow-md active:scale-[0.97] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-400/30">
+              <!-- Download icon -->
+              <svg class="w-5 h-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Simpan ke Kalender HP (.ics)
+            </button>
+          </div>
+        </div>
+
+        <!-- Card Footer — branding -->
+        <div class="bg-slate-50/60 border-t border-slate-100 px-5 sm:px-6 py-3 flex items-center justify-between">
+          <span class="text-[11px] text-slate-400 font-medium">Powered by Hyprevent AI</span>
+          <div class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="text-[11px] text-emerald-600 font-semibold">Online</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── Footer ─── -->
+    <footer class="mt-12 text-center">
+      <p class="inline-block px-6 py-2.5 rounded-full border border-slate-200 bg-white/80 text-slate-400 text-xs font-medium shadow-sm">
+        © 2026 — Hyprevent · Promosi Kesehatan
+      </p>
+    </footer>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       JAVASCRIPT LOGIC
+       ═══════════════════════════════════════════════════ -->
+  <script>
+    // ─── Simulated AI Parsed Data ───
+    const eventData = {
+      title: "Jalan Pagi",
+      startDate: "20260330T060000",
+      endDate: "20260330T063000",
+      description: "Latihan kardio ringan — jalan santai 30 menit. Direkomendasikan oleh Hyprevent untuk menjaga kesehatan jantung.",
+      location: "Taman Kota",
+    };
+
+    // ─── Helper: format date for display ───
+    function formatDisplayDate(dateStr) {
+      // dateStr format: "20260330T060000"
+      const year = dateStr.substring(0, 4);
+      const month = dateStr.substring(4, 6);
+      const day = dateStr.substring(6, 8);
+      const months = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      ];
+      return `${parseInt(day)} ${months[parseInt(month) - 1]} ${year}`;
+    }
+
+    function formatDisplayTime(startStr, endStr) {
+      const startH = startStr.substring(9, 11);
+      const startM = startStr.substring(11, 13);
+      const endH = endStr.substring(9, 11);
+      const endM = endStr.substring(11, 13);
+      return `${startH}:${startM} — ${endH}:${endM} WIB`;
+    }
+
+    // ─── Handle Submit ───
+    function handleSubmit() {
+      const input = document.getElementById('workout-input');
+      const responseCard = document.getElementById('response-card');
+      const typingIndicator = document.getElementById('typing-indicator');
+      const submitBtn = document.getElementById('submit-btn');
+
+      // Validate input
+      if (!input.value.trim()) {
+        input.classList.add('ring-2', 'ring-red-300', 'border-red-300');
+        input.placeholder = '⚠️ Silakan ketik rencana latihan Anda terlebih dahulu...';
+        setTimeout(() => {
+          input.classList.remove('ring-2', 'ring-red-300', 'border-red-300');
+          input.placeholder = 'Contoh: Ingatkan saya untuk jalan santai besok jam 6 pagi selama 30 menit';
+        }, 2000);
+        return;
+      }
+
+      // Hide response card if visible, disable button
+      responseCard.classList.add('hidden');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        Menganalisis...
+      `;
+
+      // Show typing indicator
+      typingIndicator.classList.remove('hidden');
+
+      // Simulate AI processing delay
+      setTimeout(() => {
+        // Hide typing
+        typingIndicator.classList.add('hidden');
+
+        // Populate response card
+        document.getElementById('res-title').textContent = eventData.title;
+        document.getElementById('res-date').textContent = formatDisplayDate(eventData.startDate);
+        document.getElementById('res-time').textContent = formatDisplayTime(eventData.startDate, eventData.endDate);
+        document.getElementById('res-desc').textContent = eventData.description;
+
+        // Show response card
+        responseCard.classList.remove('hidden');
+
+        // Scroll into view
+        responseCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        // Restore button
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `
+          <svg class="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24"
+            stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+          </svg>
+          Jadwalkan
+        `;
+      }, 1800);
+    }
+
+    // ─── Save to Google Calendar ───
+    function saveToGoogleCalendar() {
+      const baseUrl = 'https://calendar.google.com/calendar/render';
+      const params = new URLSearchParams({
+        action: 'TEMPLATE',
+        text: eventData.title,
+        dates: `${eventData.startDate}/${eventData.endDate}`,
+        details: eventData.description,
+        location: eventData.location || '',
+        sf: 'true',
+        output: 'xml',
+      });
+
+      const url = `${baseUrl}?${params.toString()}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    // ─── Save to .ics File ───
+    function saveToICS() {
+      // Generate a unique UID
+      const uid = `hyprevent-${Date.now()}@hyprevent.app`;
+
+      // Build ICS content (RFC 5545)
+      const icsContent = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Hyprevent//Smart Workout Scheduler//ID',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        'BEGIN:VEVENT',
+        `UID:${uid}`,
+        `DTSTAMP:${formatICSDate(new Date())}`,
+        `DTSTART:${eventData.startDate}`,
+        `DTEND:${eventData.endDate}`,
+        `SUMMARY:${eventData.title}`,
+        `DESCRIPTION:${escapeICSText(eventData.description)}`,
+        `LOCATION:${eventData.location || ''}`,
+        'STATUS:CONFIRMED',
+        `ORGANIZER;CN=Hyprevent:mailto:noreply@hyprevent.app`,
+        'BEGIN:VALARM',
+        'TRIGGER:-PT15M',
+        'ACTION:DISPLAY',
+        'DESCRIPTION:Waktunya latihan! 🏃',
+        'END:VALARM',
+        'END:VEVENT',
+        'END:VCALENDAR',
+      ].join('\r\n');
+
+      // Create Blob and trigger download
+      const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${eventData.title.replace(/\s+/g, '_')}_Hyprevent.ics`;
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    // ─── ICS Helpers ───
+    function formatICSDate(date) {
+      return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    }
+
+    function escapeICSText(text) {
+      return text.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+    }
+
+    // ─── Allow submit on Enter (Ctrl+Enter) ───
+    document.getElementById('workout-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleSubmit();
+      }
+    });
+  </script>
+
+</body>
+
+</html>
