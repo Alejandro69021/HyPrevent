@@ -416,23 +416,26 @@ html {
 
 /* ─── Step Navigation ─── */
 .step-navigation {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 0.5rem;
   margin-bottom: 1.5rem;
 }
 
 .step-button {
-  flex: 1;
-  padding: 0.75rem 1rem;
+  padding: 0.625rem 0.5rem;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background: var(--bg-light);
   color: var(--text-light);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: inherit;
+  text-align: center;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .step-button:hover {
@@ -624,10 +627,30 @@ html {
 
   .content-section {
     padding: 2rem 1.25rem;
+    overflow: hidden;
   }
 
   .features-grid {
     grid-template-columns: 1fr;
+  }
+
+  .step-navigation {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .step-button {
+    font-size: 0.8125rem;
+    padding: 0.625rem 0.375rem;
+  }
+
+  .step-nav-buttons {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .step-nav-buttons button {
+    width: 100%;
+    text-align: center;
   }
 }
 
@@ -638,6 +661,17 @@ html {
 
   .content-section {
     padding: 1.5rem 1rem;
+    overflow: hidden;
+  }
+
+  .step-navigation {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.375rem;
+  }
+
+  .step-button {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.25rem;
   }
 }
 
