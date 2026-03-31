@@ -100,8 +100,10 @@ export default function JadwalSection() {
             alignItems: 'center',
             minHeight: 'calc(100vh - 5rem)',
             padding: '2rem 1rem',
+            width: '100%',
+            boxSizing: 'border-box',
         }}>
-            <div className="content-section animate-fade-in" style={{ width: '100%', maxWidth: '900px' }}>
+            <div className="content-section animate-fade-in" style={{ width: '100%', maxWidth: '900px', boxSizing: 'border-box', overflow: 'hidden' }}>
                 {/* Header */}
                 <div className="intro-section">
                     <h1>Asisten Jadwal Latihan</h1>
@@ -113,9 +115,9 @@ export default function JadwalSection() {
                 {/* Example chips */}
                 <div style={{
                     display: 'flex',
-                    flexWrap: 'wrap',
+                    flexDirection: 'column',
+                    alignItems: 'center',
                     gap: '0.5rem',
-                    justifyContent: 'center',
                     marginBottom: '1.25rem',
                 }}>
                     {[
@@ -156,9 +158,12 @@ export default function JadwalSection() {
                 {/* Input Area */}
                 <div style={{
                     display: 'flex',
+                    flexWrap: 'wrap',
                     gap: '0.75rem',
                     marginBottom: '1.5rem',
                     alignItems: 'stretch',
+                    width: '100%',
+                    boxSizing: 'border-box',
                 }}>
                     <input
                         type="text"
@@ -168,7 +173,8 @@ export default function JadwalSection() {
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
                         placeholder="Contoh: Ingatkan saya jalan santai besok jam 6 pagi..."
                         style={{
-                            flex: 1,
+                            flex: '1 1 200px',
+                            minWidth: 0,
                             padding: '0.75rem 1rem',
                             borderRadius: '12px',
                             border: '1px solid var(--border-color)',
@@ -178,6 +184,7 @@ export default function JadwalSection() {
                             color: 'var(--text-dark)',
                             outline: 'none',
                             transition: 'border-color 0.2s, box-shadow 0.2s',
+                            boxSizing: 'border-box',
                         }}
                         onFocus={(e) => {
                             e.target.style.borderColor = 'var(--primary-color)';
@@ -203,6 +210,7 @@ export default function JadwalSection() {
                             cursor: 'pointer',
                             transition: 'background 0.2s, transform 0.1s',
                             whiteSpace: 'nowrap',
+                            flexShrink: 0,
                         }}
                         onMouseEnter={(e) => e.target.style.background = '#0f766e'}
                         onMouseLeave={(e) => e.target.style.background = 'var(--primary-color)'}
@@ -292,7 +300,7 @@ export default function JadwalSection() {
                                 }}>
                                     Simpan ke kalendermu:
                                 </p>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%' }}>
                                     <button
                                         id="btn-google-cal"
                                         onClick={bukaGoogleCalendar}
