@@ -96,6 +96,13 @@ export default function JadwalSection() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: msg, history, sessionId: SESSION_ID }),
             });
+
+            // Detect non-JSON response (backend not running → Vite returns HTML)
+            const contentType = res.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                throw new Error('Backend server belum jalan. Jalankan perintah: npm run server');
+            }
+
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Server error');
 
@@ -110,7 +117,10 @@ export default function JadwalSection() {
             setMessages(prev => [...prev, aiMsg]);
             setHistory(data.updatedHistory || []);
         } catch (err) {
-            setMessages(prev => [...prev, { role: 'ai', text: `⚠️ ${err.message}` }]);
+            const errorText = err.message?.includes('Unexpected token')
+                ? 'Backend server belum jalan. Jalankan perintah: npm run server'
+                : err.message;
+            setMessages(prev => [...prev, { role: 'ai', text: `⚠️ ${errorText}` }]);
         } finally {
             setLoading(false);
         }
@@ -313,13 +323,7 @@ export default function JadwalSection() {
                             )}
                         </button>
                     </div>
-                    <div className="chat-status-bar">
-                        <span>Powered by Gemini AI · HyPrevent</span>
-                        <span className="chat-cal-status">
-                            <span className={`chat-cal-dot ${calConnected ? 'chat-cal-dot--on' : ''}`} />
-                            {calConnected ? 'Calendar Connected' : 'Calendar Not Connected'}
-                        </span>
-                    </div>
+
                 </div>
             </div>
         </div>
