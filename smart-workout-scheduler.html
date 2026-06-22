@@ -371,8 +371,12 @@
       return `${startH}:${startM} — ${endH}:${endM} WIB`;
     }
 
+    // ─── Chat history for multi-turn ───
+    let chatHistory = [];
+    const SESSION_ID = `scheduler-${Date.now()}`;
+
     // ─── Handle Submit ───
-    function handleSubmit() {
+    async function handleSubmit() {
       const input = document.getElementById('workout-input');
       const responseCard = document.getElementById('response-card');
       const typingIndicator = document.getElementById('typing-indicator');
@@ -403,34 +407,83 @@
       // Show typing indicator
       typingIndicator.classList.remove('hidden');
 
-      // Simulate AI processing delay
-      setTimeout(() => {
+      try {
+        // Call backend API
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: input.value.trim(),
+            history: chatHistory,
+            sessionId: SESSION_ID,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || 'Server error');
+        }
+
+        // Update chat history
+        chatHistory = data.updatedHistory || [];
+
         // Hide typing
         typingIndicator.classList.add('hidden');
 
-        // Populate response card
-        document.getElementById('res-title').textContent = eventData.title;
-        document.getElementById('res-date').textContent = formatDisplayDate(eventData.startDate);
-        document.getElementById('res-time').textContent = formatDisplayTime(eventData.startDate, eventData.endDate);
-        document.getElementById('res-desc').textContent = eventData.description;
+        // Check if schedule was created
+        if (data.scheduledEvent) {
+          const { nama_aktivitas, waktu_pelaksanaan } = data.scheduledEvent;
+          const startDate = new Date(waktu_pelaksanaan.replace(' ', 'T'));
+          const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+          const pad = (n) => String(n).padStart(2, '0');
+          const toICSDate = (d) => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+
+          // Update global eventData for calendar buttons
+          eventData.title = nama_aktivitas;
+          eventData.startDate = toICSDate(startDate);
+          eventData.endDate = toICSDate(endDate);
+          eventData.description = data.text || `Jadwal latihan ${nama_aktivitas} dari HyPrevent AI.`;
+
+          // Populate response card
+          document.getElementById('res-title').textContent = nama_aktivitas;
+          document.getElementById('res-date').textContent = formatDisplayDate(eventData.startDate);
+          document.getElementById('res-time').textContent = formatDisplayTime(eventData.startDate, eventData.endDate);
+          document.getElementById('res-desc').textContent = data.text || eventData.description;
+        } else {
+          // Text-only response — show in description
+          document.getElementById('res-title').textContent = 'Respons HyPrevent AI';
+          document.getElementById('res-date').textContent = new Date().toLocaleDateString('id-ID');
+          document.getElementById('res-time').textContent = '—';
+          document.getElementById('res-desc').textContent = data.text;
+        }
 
         // Show response card
         responseCard.classList.remove('hidden');
-
-        // Scroll into view
         responseCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-        // Restore button
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = `
-          <svg class="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24"
-            stroke="currentColor" stroke-width="2.2">
-            <path stroke-linecap="round" stroke-linejoin="round"
-              d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-          </svg>
-          Jadwalkan
-        `;
-      }, 1800);
+      } catch (err) {
+        // Hide typing
+        typingIndicator.classList.add('hidden');
+
+        // Show error
+        document.getElementById('res-title').textContent = '⚠️ Error';
+        document.getElementById('res-date').textContent = '—';
+        document.getElementById('res-time').textContent = '—';
+        document.getElementById('res-desc').textContent = err.message;
+        responseCard.classList.remove('hidden');
+      }
+
+      // Restore button
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `
+        <svg class="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24"
+          stroke="currentColor" stroke-width="2.2">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+        </svg>
+        Jadwalkan
+      `;
     }
 
     // ─── Save to Google Calendar ───
