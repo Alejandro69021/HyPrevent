@@ -3,7 +3,13 @@
   publish = "dist"
 
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
+  from = "/api/chat"
+  to = "/.netlify/functions/chat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/calendar/status"
+  to = "/.netlify/functions/calendar-status"
   status = 200
   force = true
