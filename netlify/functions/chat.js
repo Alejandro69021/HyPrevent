@@ -162,7 +162,7 @@ export const handler = async (event) => {
 
             const followUpText =
                 followUp.candidates?.[0]?.content?.parts
-                    ?.filter((p) => p.text)
+                    ?.filter((p) => p.text && !p.thought)
                     .map((p) => p.text)
                     .join('') || 'Jadwal berhasil dibuat! 💪';
 
@@ -189,8 +189,73 @@ export const handler = async (event) => {
             };
         }
 
-        const textParts = parts.filter((p) => p.text).map((p) => p.text);
-        const responseText = textParts.join('') || 'Hmm, aku tidak yakin bagaimana menjawabnya. Coba tanya lagi, Kak!';
+        // Filter out thought/thinking parts — never show internal thoughts to user
+        const textParts = parts
+            .filter((p) => p.text && !p.thought)
+            .map((p) => p.text);
+        const rawText = textParts.join('');
+
+        // Detect if Gemini returned function call as text block (tool_code) instead of structured part
+        // This happens with preview models that leak thinking output
+        const toolCodeMatch = rawText.match(/buatJadwalOlahraga\s*\(\s*\{([\s\S]*?)\}\s*\)/);
+        const namaMatch = rawText.match(/nama_aktivitas["']?\s*:\s*["']([^"']+)["']/);
+        const waktuMatch = rawText.match(/waktu_pelaksanaan["']?\s*:\s*["']([^"']+)["']/);
+
+        if ((toolCodeMatch || (namaMatch && waktuMatch)) && !fcPart) {
+            const nama = namaMatch?.[1] || 'Latihan Olahraga';
+            const waktu = waktuMatch?.[1] || new Date().toISOString().slice(0,19).replace('T', ' ');
+
+            // Build proper function call + response loop
+            const historyWithModelFC = [
+                ...contents,
+                { role: 'model', parts: [{ functionCall: { name: 'buatJadwalOlahraga', args: { nama_aktivitas: nama, waktu_pelaksanaan: waktu } } }] },
+            ];
+
+            const functionResultContents = [
+                ...historyWithModelFC,
+                {
+                    role: 'user',
+                    parts: [{
+                        functionResponse: {
+                            name: 'buatJadwalOlahraga',
+                            response: {
+                                status: 'success',
+                                message: `Jadwal "${nama}" pada ${waktu} berhasil dibuat.`,
+                            },
+                        },
+                    }],
+                },
+            ];
+
+            const followUp = await ai.models.generateContent({
+                model: MODEL,
+                contents: functionResultContents,
+                config: { tools: TOOLS, systemInstruction: SYSTEM_INSTRUCTION },
+            });
+
+            const followUpText = followUp.candidates?.[0]?.content?.parts
+                ?.filter((p) => p.text && !p.thought)
+                .map((p) => p.text)
+                .join('') || `Jadwal "${nama}" berhasil dibuat! 💪 Semangat, Kak!`;
+
+            const finalHistory = [
+                ...functionResultContents,
+                { role: 'model', parts: [{ text: followUpText }] },
+            ];
+
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({
+                    text: followUpText,
+                    updatedHistory: finalHistory,
+                    scheduledEvent: { nama_aktivitas: nama, waktu_pelaksanaan: waktu },
+                    calendarSaved: false
+                })
+            };
+        }
+
+        const responseText = rawText || 'Hmm, aku tidak yakin bagaimana menjawabnya. Coba tanya lagi, Kak!';
 
         const updatedHistory = [
             ...contents,
