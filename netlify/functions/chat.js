@@ -50,8 +50,20 @@ const TOOLS = [
 
 const MODEL = 'gemini-3-flash-preview';
 
+function formatWaktu(waktuStr) {
+    try {
+        const d = new Date(waktuStr.replace(' ', 'T'));
+        if (isNaN(d.getTime())) return waktuStr;
+        const hari = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${hari[d.getDay()]}, ${d.getDate()} ${bulan[d.getMonth()]} ${d.getFullYear()} — ${pad(d.getHours())}:${pad(d.getMinutes())} WIB`;
+    } catch {
+        return waktuStr;
+    }
+}
+
 export const handler = async (event) => {
-    // Enable CORS
     const headers = {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type',
@@ -97,7 +109,7 @@ export const handler = async (event) => {
             },
         ];
 
-        // Call Gemini
+        // Single Gemini call — no second call to avoid Netlify 10s timeout
         const response = await ai.models.generateContent({
             model: MODEL,
             contents,
@@ -120,148 +132,52 @@ export const handler = async (event) => {
         }
 
         const parts = candidate.content.parts;
-        const fcPart = parts.find((p) => p.functionCall);
 
-        if (fcPart && fcPart.functionCall.name === 'buatJadwalOlahraga') {
-            const { name, args } = fcPart.functionCall;
+        // Check structured function call
+        const fcPart = parts.find((p) => p.functionCall && p.functionCall.name === 'buatJadwalOlahraga');
 
-            const historyWithModelFC = [
+        if (fcPart) {
+            const { nama_aktivitas, waktu_pelaksanaan } = fcPart.functionCall.args;
+
+            // Local confirmation — no second Gemini call needed (prevents timeout)
+            const localConfirmation = `Siap, Kak! 🎉 Jadwal "${nama_aktivitas}" sudah aku catat untuk ${formatWaktu(waktu_pelaksanaan)}. 💪 Semangat latihan ya! Ingat, konsistensi adalah kunci mencegah hipertensi. Mau aku bantu jadwalkan latihan lainnya?`;
+
+            const updatedHistory = [
                 ...contents,
-                {
-                    role: 'model',
-                    parts: candidate.content.parts,
-                },
-            ];
-
-            const functionResultContents = [
-                ...historyWithModelFC,
-                {
-                    role: 'user',
-                    parts: [
-                        {
-                            functionResponse: {
-                                name: 'buatJadwalOlahraga',
-                                response: {
-                                    status: 'success',
-                                    message: `Jadwal "${args.nama_aktivitas}" pada ${args.waktu_pelaksanaan} berhasil dibuat.`,
-                                },
-                            },
-                        },
-                    ],
-                },
-            ];
-
-            const followUp = await ai.models.generateContent({
-                model: MODEL,
-                contents: functionResultContents,
-                config: {
-                    tools: TOOLS,
-                    systemInstruction: SYSTEM_INSTRUCTION,
-                },
-            });
-
-            const followUpText =
-                followUp.candidates?.[0]?.content?.parts
-                    ?.filter((p) => p.text && !p.thought)
-                    .map((p) => p.text)
-                    .join('') || 'Jadwal berhasil dibuat! 💪';
-
-            const finalHistory = [
-                ...functionResultContents,
-                {
-                    role: 'model',
-                    parts: [{ text: followUpText }],
-                },
+                { role: 'model', parts: [{ text: localConfirmation }] },
             ];
 
             return {
                 statusCode: 200,
                 headers,
                 body: JSON.stringify({
-                    text: followUpText,
-                    updatedHistory: finalHistory,
-                    scheduledEvent: {
-                        nama_aktivitas: args.nama_aktivitas,
-                        waktu_pelaksanaan: args.waktu_pelaksanaan
-                    },
+                    text: localConfirmation,
+                    updatedHistory,
+                    scheduledEvent: { nama_aktivitas, waktu_pelaksanaan },
                     calendarSaved: false
                 })
             };
         }
 
-        // Filter out thought/thinking parts — never show internal thoughts to user
+        // No function call — plain text response
+        // Filter thought parts so internal AI thinking never leaks to user
         const textParts = parts
             .filter((p) => p.text && !p.thought)
             .map((p) => p.text);
-        const rawText = textParts.join('');
+        const responseText = textParts.join('').trim() || 'Hmm, aku tidak yakin bagaimana menjawabnya. Coba tanya lagi, Kak!';
 
-        // Detect if Gemini returned function call as text block (tool_code) instead of structured part
-        // This happens with preview models that leak thinking output
-        const toolCodeMatch = rawText.match(/buatJadwalOlahraga\s*\(\s*\{([\s\S]*?)\}\s*\)/);
-        const namaMatch = rawText.match(/nama_aktivitas["']?\s*:\s*["']([^"']+)["']/);
-        const waktuMatch = rawText.match(/waktu_pelaksanaan["']?\s*:\s*["']([^"']+)["']/);
+        // If response still contains tool_code leak from preview model, replace with fallback
+        const hasToolCodeLeak = responseText.includes('tool_code') || responseText.includes('buatJadwalOlahraga');
 
-        if ((toolCodeMatch || (namaMatch && waktuMatch)) && !fcPart) {
-            const nama = namaMatch?.[1] || 'Latihan Olahraga';
-            const waktu = waktuMatch?.[1] || new Date().toISOString().slice(0,19).replace('T', ' ');
-
-            // Build proper function call + response loop
-            const historyWithModelFC = [
-                ...contents,
-                { role: 'model', parts: [{ functionCall: { name: 'buatJadwalOlahraga', args: { nama_aktivitas: nama, waktu_pelaksanaan: waktu } } }] },
-            ];
-
-            const functionResultContents = [
-                ...historyWithModelFC,
-                {
-                    role: 'user',
-                    parts: [{
-                        functionResponse: {
-                            name: 'buatJadwalOlahraga',
-                            response: {
-                                status: 'success',
-                                message: `Jadwal "${nama}" pada ${waktu} berhasil dibuat.`,
-                            },
-                        },
-                    }],
-                },
-            ];
-
-            const followUp = await ai.models.generateContent({
-                model: MODEL,
-                contents: functionResultContents,
-                config: { tools: TOOLS, systemInstruction: SYSTEM_INSTRUCTION },
-            });
-
-            const followUpText = followUp.candidates?.[0]?.content?.parts
-                ?.filter((p) => p.text && !p.thought)
-                .map((p) => p.text)
-                .join('') || `Jadwal "${nama}" berhasil dibuat! 💪 Semangat, Kak!`;
-
-            const finalHistory = [
-                ...functionResultContents,
-                { role: 'model', parts: [{ text: followUpText }] },
-            ];
-
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({
-                    text: followUpText,
-                    updatedHistory: finalHistory,
-                    scheduledEvent: { nama_aktivitas: nama, waktu_pelaksanaan: waktu },
-                    calendarSaved: false
-                })
-            };
-        }
-
-        const responseText = rawText || 'Hmm, aku tidak yakin bagaimana menjawabnya. Coba tanya lagi, Kak!';
+        const finalText = hasToolCodeLeak
+            ? 'Maaf, ada gangguan teknis. Coba kirim pesan kamu lagi ya, Kak! 🙏'
+            : responseText;
 
         const updatedHistory = [
             ...contents,
             {
                 role: 'model',
-                parts: [{ text: responseText }],
+                parts: [{ text: finalText }],
             },
         ];
 
@@ -269,7 +185,7 @@ export const handler = async (event) => {
             statusCode: 200,
             headers,
             body: JSON.stringify({
-                text: responseText,
+                text: finalText,
                 updatedHistory
             })
         };
