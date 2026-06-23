@@ -25,8 +25,8 @@ app.use(express.json({ limit: '1mb' }));
 
 // ─── Routes ───
 
-app.use('/api/chat', chatRoutes);
-app.use('/api/calendar', calendarRoutes);
+app.use(['/api/chat', '/chat', '/.netlify/functions/api/chat'], chatRoutes);
+app.use(['/api/calendar', '/calendar', '/.netlify/functions/api/calendar'], calendarRoutes);
 
 // ─── Health check ───
 
