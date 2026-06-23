@@ -41,17 +41,21 @@ app.get('/api/health', (_req, res) => {
 
 // ─── Start ───
 
-app.listen(PORT, () => {
-    console.log(`\n🚀 HyPrevent API server running on http://localhost:${PORT}`);
-    console.log(`   Health check: http://localhost:${PORT}/api/health`);
+if (process.env.NODE_ENV !== 'production' && !process.env.NETLIFY) {
+    app.listen(PORT, () => {
+        console.log(`\n🚀 HyPrevent API server running on http://localhost:${PORT}`);
+        console.log(`   Health check: http://localhost:${PORT}/api/health`);
 
-    // Validate env
-    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_gemini_api_key_here') {
-        console.warn('   ⚠️  GEMINI_API_KEY belum di-set! Chat tidak akan berfungsi.');
-    }
-    if (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID === 'your_google_oauth_client_id') {
-        console.warn('   ⚠️  GOOGLE_CLIENT_ID belum di-set! Calendar OAuth tidak akan berfungsi.');
-    }
+        // Validate env
+        if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_gemini_api_key_here') {
+            console.warn('   ⚠️  GEMINI_API_KEY belum di-set! Chat tidak akan berfungsi.');
+        }
+        if (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID === 'your_google_oauth_client_id') {
+            console.warn('   ⚠️  GOOGLE_CLIENT_ID belum di-set! Calendar OAuth tidak akan berfungsi.');
+        }
 
-    console.log('');
-});
+        console.log('');
+    });
+}
+
+export default app;
