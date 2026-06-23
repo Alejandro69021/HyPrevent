@@ -746,10 +746,11 @@ html {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: calc(100vh - 5rem);
-  padding: 2rem 1rem;
+  height: calc(100vh - 5rem);
+  padding: 1.5rem 1rem;
   width: 100%;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* Override content-section for chat layout */
@@ -758,7 +759,9 @@ html {
   flex-direction: column;
   width: 100%;
   max-width: 900px;
-  max-height: calc(100vh - 8rem);
+  flex: 1;
+  height: 0;
+  min-height: 0;
   overflow: hidden;
   padding: 1.5rem !important;
 }
@@ -1163,8 +1166,12 @@ html {
 
 /* ─── Chat Responsive ─── */
 @media (max-width: 768px) {
+  .chat-page {
+    padding: 1rem 0.75rem;
+    height: calc(100vh - 5rem);
+  }
+
   .chat-container {
-    max-height: calc(100vh - 10rem);
     padding: 1rem !important;
   }
 
@@ -1174,26 +1181,48 @@ html {
 
   .chat-chips {
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
+  }
+
+  .chat-chip {
+    text-align: center;
   }
 }
 
 @media (max-width: 480px) {
   .chat-page {
-    padding: 1rem 0.5rem;
+    padding: 0.75rem 0.5rem;
+    height: calc(100vh - 5rem);
   }
 
   .chat-container {
     padding: 0.75rem !important;
+    border-radius: 16px !important;
   }
 
+  /* Keep input row horizontal on mobile */
   .chat-input-row {
-    flex-direction: column;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 0.5rem;
   }
 
   .chat-send-btn {
-    width: 100%;
-    justify-content: center;
+    width: auto;
+    padding: 0.625rem 1rem;
+    flex-shrink: 0;
+  }
+
+  .chat-bubble {
+    font-size: 0.8125rem;
+  }
+
+  .intro-section h1 {
+    font-size: 1.1rem;
+  }
+
+  .intro-section p {
+    font-size: 0.8rem;
   }
 
   .chat-status-bar {

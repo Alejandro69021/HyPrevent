@@ -57,11 +57,14 @@ export default function JadwalSection() {
     const [history, setHistory] = useState([]);
     const [calConnected, setCalConnected] = useState(false);
     const chatEndRef = useRef(null);
+    const chatMessagesRef = useRef(null);
     const inputRef = useRef(null);
 
-    // Scroll on new messages
+    // Scroll messages container (not page) on new messages
     useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (chatMessagesRef.current) {
+            chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+        }
     }, [messages, loading]);
 
     // Listen for Calendar OAuth callback
@@ -187,7 +190,7 @@ export default function JadwalSection() {
                 )}
 
                 {/* ─── Chat Area ─── */}
-                <div className="chat-messages">
+                <div className="chat-messages" ref={chatMessagesRef}>
 
                     {/* Welcome */}
                     {messages.length === 0 && (
