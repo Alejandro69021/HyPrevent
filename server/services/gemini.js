@@ -92,9 +92,6 @@ export async function sendMessage(userMessage, chatHistory = []) {
         config: {
             tools: TOOLS,
             systemInstruction: SYSTEM_INSTRUCTION,
-            thinkingConfig: {
-                thinkingLevel: 'HIGH',
-            },
         },
     });
 
@@ -151,9 +148,6 @@ export async function sendMessage(userMessage, chatHistory = []) {
                 config: {
                     tools: TOOLS,
                     systemInstruction: SYSTEM_INSTRUCTION,
-                    thinkingConfig: {
-                        thinkingLevel: 'HIGH',
-                    },
                 },
             });
 

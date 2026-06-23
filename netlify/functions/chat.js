@@ -104,9 +104,6 @@ export const handler = async (event) => {
             config: {
                 tools: TOOLS,
                 systemInstruction: SYSTEM_INSTRUCTION,
-                thinkingConfig: {
-                    thinkingLevel: 'HIGH',
-                },
             },
         });
 
@@ -160,9 +157,6 @@ export const handler = async (event) => {
                 config: {
                     tools: TOOLS,
                     systemInstruction: SYSTEM_INSTRUCTION,
-                    thinkingConfig: {
-                        thinkingLevel: 'HIGH',
-                    },
                 },
             });
 
