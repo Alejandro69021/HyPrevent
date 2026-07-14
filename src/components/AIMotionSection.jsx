@@ -71,10 +71,10 @@ const formatDur = (s) =>
 // ─────────────────────────────────────────────────────────
 export default function AIMotionSection() {
     const [selectedExercise, setSelectedExercise] = useState("");
-    const [camStatus, setCamStatus]               = useState("loading"); // loading|active|stopped|error
-    const [statusMsg, setStatusMsg]               = useState("Memuat model AI…");
+    const [camStatus, setCamStatus]               = useState("stopped"); // loading|active|stopped|error
+    const [statusMsg, setStatusMsg]               = useState("Kamera nonaktif.");
     const [poseDetected, setPoseDetected]         = useState(false);
-    const [isCamOn, setIsCamOn]                   = useState(true);
+    const [isCamOn, setIsCamOn]                   = useState(false);
     const [currentGesture, setCurrentGesture]     = useState(null);
     const [plankPhase, setPlankPhase]             = useState("idle"); // idle|running|stopped
     const [plankDuration, setPlankDuration]       = useState(0);
@@ -171,35 +171,42 @@ export default function AIMotionSection() {
         return detect;
     }, []);
 
-    // Full startup: load both models + camera
+    // Unified function to request stream and start detection
     const startCamera = useCallback(async () => {
         try {
             setCamStatus("loading");
-            setStatusMsg("Memuat model AI…");
+            setStatusMsg("Mempersiapkan model AI…");
 
-            const { PoseLandmarker, HandLandmarker, FilesetResolver, DrawingUtils } =
-                await import(/* @vite-ignore */ MP_CDN);
+            // Load vision CDN imports and tasks resolver only if needed
+            if (!landmarkerRef.current || !handLandmarkerRef.current) {
+                const { PoseLandmarker, HandLandmarker, FilesetResolver } =
+                    await import(/* @vite-ignore */ MP_CDN);
 
-            const vision = await FilesetResolver.forVisionTasks(MP_WASM);
+                const vision = await FilesetResolver.forVisionTasks(MP_WASM);
 
-            setStatusMsg("Memuat model pose…");
-            landmarkerRef.current = await PoseLandmarker.createFromOptions(vision, {
-                baseOptions: { modelAssetPath: POSE_MODEL, delegate: "GPU" },
-                runningMode: "VIDEO",
-                numPoses: 1,
-            });
+                if (!landmarkerRef.current) {
+                    setStatusMsg("Memuat model pose…");
+                    landmarkerRef.current = await PoseLandmarker.createFromOptions(vision, {
+                        baseOptions: { modelAssetPath: POSE_MODEL, delegate: "GPU" },
+                        runningMode: "VIDEO",
+                        numPoses: 1,
+                    });
+                }
 
-            setStatusMsg("Memuat model gesture tangan…");
-            handLandmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
-                baseOptions: { modelAssetPath: HAND_MODEL, delegate: "GPU" },
-                runningMode: "VIDEO",
-                numHands: 1,
-                minHandDetectionConfidence: 0.5,
-                minHandPresenceConfidence: 0.5,
-                minTrackingConfidence: 0.5,
-            });
+                if (!handLandmarkerRef.current) {
+                    setStatusMsg("Memuat model gesture tangan…");
+                    handLandmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
+                        baseOptions: { modelAssetPath: HAND_MODEL, delegate: "GPU" },
+                        runningMode: "VIDEO",
+                        numHands: 1,
+                        minHandDetectionConfidence: 0.5,
+                        minHandPresenceConfidence: 0.5,
+                        minTrackingConfidence: 0.5,
+                    });
+                }
+            }
 
-            setStatusMsg("Meminta akses kamera…");
+            setStatusMsg("Membuka kamera…");
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { width: 640, height: 480, facingMode: facingMode },
                 audio: false,
@@ -207,36 +214,38 @@ export default function AIMotionSection() {
             streamRef.current = stream;
 
             const video = videoRef.current;
-            video.srcObject = stream;
-            await video.play();
+            if (video) {
+                video.srcObject = stream;
+                await video.play();
 
-            video.addEventListener("loadedmetadata", () => {
-                canvasRef.current.width  = video.videoWidth;
-                canvasRef.current.height = video.videoHeight;
-            });
+                canvasRef.current.width  = video.videoWidth || 640;
+                canvasRef.current.height = video.videoHeight || 480;
 
-            setCamStatus("active");
-            setStatusMsg("Mendeteksi pose…");
+                setCamStatus("active");
+                setStatusMsg("Mendeteksi pose…");
 
-            const ctx = canvasRef.current.getContext("2d");
-            const detect = buildDetectLoop(video, ctx, PoseLandmarker, DrawingUtils);
-            detect();
+                const { PoseLandmarker, DrawingUtils } = await import(/* @vite-ignore */ MP_CDN);
+                const ctx = canvasRef.current.getContext("2d");
+                const detect = buildDetectLoop(video, ctx, PoseLandmarker, DrawingUtils);
+                detect();
+            }
         } catch (err) {
-            console.error("MediaPipe init error:", err);
+            console.error("Camera init error:", err);
             setCamStatus("error");
             if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")
                 setStatusMsg("Izin kamera ditolak. Aktifkan di pengaturan browser.");
             else if (err.name === "NotFoundError")
                 setStatusMsg("Tidak ada kamera ditemukan.");
             else
-                setStatusMsg("Gagal memuat AI. Periksa koneksi internet.");
+                setStatusMsg("Gagal membuka kamera. Coba lagi.");
         }
     }, [buildDetectLoop, facingMode]);
 
-    // Stop camera (release tracks)
+    // Function to release camera tracks
     const stopCamera = useCallback(() => {
         cancelAnimationFrame(animRef.current);
         streamRef.current?.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
         if (videoRef.current) videoRef.current.srcObject = null;
         if (canvasRef.current) {
             const ctx = canvasRef.current.getContext("2d");
@@ -245,65 +254,45 @@ export default function AIMotionSection() {
         setPoseDetected(false);
         setCurrentGesture(null);
         setCamStatus("stopped");
-        setIsCamOn(false);
     }, []);
 
-    // Restart camera (model already loaded)
-    const restartCamera = useCallback(async () => {
-        if (!landmarkerRef.current) { setIsCamOn(true); startCamera(); return; }
-        try {
-            setIsCamOn(true);
-            setCamStatus("loading");
-            setStatusMsg("Membuka kamera…");
-
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { width: 640, height: 480, facingMode: facingMode },
-                audio: false,
-            });
-            streamRef.current = stream;
-
-            const video = videoRef.current;
-            video.srcObject = stream;
-            await video.play();
-
-            canvasRef.current.width  = video.videoWidth  || 640;
-            canvasRef.current.height = video.videoHeight || 480;
-
-            setCamStatus("active");
-            setStatusMsg("Mendeteksi pose…");
-
-            const { PoseLandmarker, DrawingUtils } = await import(/* @vite-ignore */ MP_CDN);
-            const ctx = canvasRef.current.getContext("2d");
-            const detect = buildDetectLoop(video, ctx, PoseLandmarker, DrawingUtils);
-            detect();
-        } catch (err) {
-            setCamStatus("error");
-            setStatusMsg("Gagal membuka kamera. Coba lagi.");
-        }
-    }, [startCamera, buildDetectLoop, facingMode]);
-
     const handleToggleCam = useCallback(() => {
-        if (isCamOn) stopCamera(); else restartCamera();
-    }, [isCamOn, stopCamera, restartCamera]);
+        setIsCamOn((prev) => !prev);
+    }, []);
 
     const handleSwitchCamera = useCallback(() => {
-        cancelAnimationFrame(animRef.current);
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-        if (videoRef.current) videoRef.current.srcObject = null;
+        // Toggle facingMode directly; stream lifecycle is driven by useEffect
         setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
     }, []);
 
+    // Effect to start/stop stream lifecycle based on isCamOn / facingMode
     useEffect(() => {
         if (isCamOn) {
             startCamera();
+        } else {
+            stopCamera();
         }
         return () => {
             cancelAnimationFrame(animRef.current);
             streamRef.current?.getTracks().forEach((t) => t.stop());
-            landmarkerRef.current?.close();
-            handLandmarkerRef.current?.close();
         };
-    }, [startCamera, isCamOn]);
+    }, [startCamera, stopCamera, isCamOn]);
+
+    // Unmount cleanup: close models and stop all streams
+    useEffect(() => {
+        return () => {
+            cancelAnimationFrame(animRef.current);
+            streamRef.current?.getTracks().forEach((t) => t.stop());
+            if (landmarkerRef.current) {
+                try { landmarkerRef.current.close(); } catch(e){}
+                landmarkerRef.current = null;
+            }
+            if (handLandmarkerRef.current) {
+                try { handLandmarkerRef.current.close(); } catch(e){}
+                handLandmarkerRef.current = null;
+            }
+        };
+    }, []);
 
     // ── Derived ──
     const isPlank = selectedExercise === "plank";
@@ -394,8 +383,16 @@ export default function AIMotionSection() {
                                         <line x1="1" y1="1" x2="23" y2="23" />
                                     </svg>
                                 </div>
-                                <p className="ai-motion-cam-label">Kamera Dimatikan</p>
-                                <p style={{ fontSize: "0.8rem", color: "#4b5563", marginTop: "0.25rem" }}>Privasi Anda terlindungi</p>
+                                <p className="ai-motion-cam-label">Kamera Belum Aktif</p>
+                                <p style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: "0.15rem", marginBottom: "1rem" }}>
+                                    Aktifkan kamera untuk memulai deteksi AI
+                                </p>
+                                <button className="ai-motion-start-cta" onClick={handleToggleCam}>
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '6px' }}>
+                                        <path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                                    </svg>
+                                    Nyalakan Kamera
+                                </button>
                             </div>
                         )}
 

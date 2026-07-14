@@ -1863,4 +1863,33 @@ html {
   to   { transform: translateX(-50%) scale(1);    opacity: 1; }
 }
 
+/* ── Central CTA Start Button ── */
+.ai-motion-start-cta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.6rem;
+  border-radius: 999px;
+  background: var(--primary-color);
+  color: #fff;
+  border: none;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.4);
+  transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
+}
+
+.ai-motion-start-cta:hover {
+  background-color: var(--primary-dark, #0f766e);
+  box-shadow: 0 6px 20px rgba(13, 148, 136, 0.6);
+  transform: translateY(-2px);
+}
+
+.ai-motion-start-cta:active {
+  transform: translateY(0);
+}
+
+
 
