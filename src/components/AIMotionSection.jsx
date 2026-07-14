@@ -78,6 +78,7 @@ export default function AIMotionSection() {
     const [currentGesture, setCurrentGesture]     = useState(null);
     const [plankPhase, setPlankPhase]             = useState("idle"); // idle|running|stopped
     const [plankDuration, setPlankDuration]       = useState(0);
+    const [facingMode, setFacingMode]             = useState("user"); // user | environment
 
     const videoRef          = useRef(null);
     const canvasRef         = useRef(null);
@@ -200,7 +201,7 @@ export default function AIMotionSection() {
 
             setStatusMsg("Meminta akses kamera…");
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { width: 640, height: 480, facingMode: "user" },
+                video: { width: 640, height: 480, facingMode: facingMode },
                 audio: false,
             });
             streamRef.current = stream;
@@ -230,7 +231,7 @@ export default function AIMotionSection() {
             else
                 setStatusMsg("Gagal memuat AI. Periksa koneksi internet.");
         }
-    }, [buildDetectLoop]);
+    }, [buildDetectLoop, facingMode]);
 
     // Stop camera (release tracks)
     const stopCamera = useCallback(() => {
@@ -256,7 +257,7 @@ export default function AIMotionSection() {
             setStatusMsg("Membuka kamera…");
 
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { width: 640, height: 480, facingMode: "user" },
+                video: { width: 640, height: 480, facingMode: facingMode },
                 audio: false,
             });
             streamRef.current = stream;
@@ -279,21 +280,30 @@ export default function AIMotionSection() {
             setCamStatus("error");
             setStatusMsg("Gagal membuka kamera. Coba lagi.");
         }
-    }, [startCamera, buildDetectLoop]);
+    }, [startCamera, buildDetectLoop, facingMode]);
 
     const handleToggleCam = useCallback(() => {
         if (isCamOn) stopCamera(); else restartCamera();
     }, [isCamOn, stopCamera, restartCamera]);
 
+    const handleSwitchCamera = useCallback(() => {
+        cancelAnimationFrame(animRef.current);
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        if (videoRef.current) videoRef.current.srcObject = null;
+        setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
+    }, []);
+
     useEffect(() => {
-        startCamera();
+        if (isCamOn) {
+            startCamera();
+        }
         return () => {
             cancelAnimationFrame(animRef.current);
             streamRef.current?.getTracks().forEach((t) => t.stop());
             landmarkerRef.current?.close();
             handLandmarkerRef.current?.close();
         };
-    }, [startCamera]);
+    }, [startCamera, isCamOn]);
 
     // ── Derived ──
     const isPlank = selectedExercise === "plank";
@@ -368,8 +378,8 @@ export default function AIMotionSection() {
                         <span className="cam-corner cam-corner--bl" />
                         <span className="cam-corner cam-corner--br" />
 
-                        {/* Video + canvas (mirrored via CSS) */}
-                        <div className="ai-motion-video-wrapper">
+                        {/* Video + canvas (mirrored conditionally via CSS) */}
+                        <div className={`ai-motion-video-wrapper ${facingMode === "user" ? "mirrored" : ""}`}>
                             <video ref={videoRef} className="ai-motion-video" playsInline muted />
                             <canvas ref={canvasRef} className="ai-motion-canvas" />
                         </div>
@@ -441,26 +451,45 @@ export default function AIMotionSection() {
                             </div>
                         )}
 
-                        {/* Toggle camera button */}
-                        <button
-                            className={`ai-motion-cam-toggle ${isCamOn ? "cam-toggle--on" : "cam-toggle--off"}`}
-                            onClick={handleToggleCam}
-                            title={isCamOn ? "Matikan Kamera" : "Aktifkan Kamera"}
-                            disabled={camStatus === "loading"}
-                        >
-                            {isCamOn ? (
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                                    <line x1="1" y1="1" x2="23" y2="23" />
-                                </svg>
-                            ) : (
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                                </svg>
+                        {/* Camera Controls Overlay Container */}
+                        <div className="ai-motion-cam-controls-overlay">
+                            {/* Switch Camera Button */}
+                            {camStatus === "active" && (
+                                <button
+                                    className="ai-motion-cam-btn ai-motion-cam-switch"
+                                    onClick={handleSwitchCamera}
+                                    title="Ganti Kamera"
+                                >
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                                        <path d="M23 4v6h-6" />
+                                        <path d="M1 20v-6h6" />
+                                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                                    </svg>
+                                    <span>Kamera {facingMode === "user" ? "Belakang" : "Depan"}</span>
+                                </button>
                             )}
-                            <span>{isCamOn ? "Matikan Kamera" : "Aktifkan Kamera"}</span>
-                        </button>
+
+                            {/* Toggle Camera Button */}
+                            <button
+                                className={`ai-motion-cam-btn ai-motion-cam-toggle ${isCamOn ? "cam-toggle--on" : "cam-toggle--off"}`}
+                                onClick={handleToggleCam}
+                                title={isCamOn ? "Matikan Kamera" : "Aktifkan Kamera"}
+                                disabled={camStatus === "loading"}
+                            >
+                                {isCamOn ? (
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                        <line x1="1" y1="1" x2="23" y2="23" />
+                                    </svg>
+                                ) : (
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                                    </svg>
+                                )}
+                                <span>{isCamOn ? "Matikan Kamera" : "Aktifkan Kamera"}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 

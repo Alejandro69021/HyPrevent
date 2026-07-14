@@ -1371,11 +1371,14 @@ html {
 .cam-corner--bl { bottom: 14px; left: 14px; border-bottom-width: 2.5px; border-left-width: 2.5px; border-radius: 0 0 0 4px; }
 .cam-corner--br { bottom: 14px; right: 14px; border-bottom-width: 2.5px; border-right-width: 2.5px; border-radius: 0 0 4px 0; }
 
-/* Video + canvas wrapper — mirrored */
+/* Video + canvas wrapper — default not mirrored */
 .ai-motion-video-wrapper {
   position: absolute;
   inset: 0;
-  transform: scaleX(-1); /* mirror effect */
+}
+
+.ai-motion-video-wrapper.mirrored {
+  transform: scaleX(-1); /* mirror effect for front camera */
 }
 
 /* Loading / error overlay on top of camera */
@@ -1638,13 +1641,25 @@ html {
   .ai-motion-title {
     font-size: 1.35rem;
   }
+
+  /* Prevent overlapping with camera controls on mobile */
+  .ai-motion-pose-indicator {
+    bottom: 58px !important;
+  }
 }
 
-/* Camera toggle button */
-.ai-motion-cam-toggle {
+/* Camera controls overlay container */
+.ai-motion-cam-controls-overlay {
   position: absolute;
   bottom: 14px;
   right: 14px;
+  display: flex;
+  gap: 8px;
+  z-index: 30;
+}
+
+/* Camera button base style */
+.ai-motion-cam-btn {
   display: flex;
   align-items: center;
   gap: 0.45rem;
@@ -1655,25 +1670,35 @@ html {
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
-  z-index: 30;
   backdrop-filter: blur(8px);
   transition: background 0.2s, color 0.2s, opacity 0.2s, transform 0.15s;
   letter-spacing: 0.02em;
+  color: #fff;
+  white-space: nowrap;
 }
 
-.ai-motion-cam-toggle:disabled {
+.ai-motion-cam-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.ai-motion-cam-toggle:not(:disabled):active {
+.ai-motion-cam-btn:not(:disabled):active {
   transform: scale(0.96);
+}
+
+/* Switch camera button (kamera belakang) */
+.ai-motion-cam-switch {
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.ai-motion-cam-switch:not(:disabled):hover {
+  background: rgba(0, 0, 0, 0.8);
 }
 
 /* Kamera ON → tombol merah "Matikan Kamera" */
 .cam-toggle--on {
   background: rgba(239, 68, 68, 0.88);
-  color: #fff;
 }
 
 .cam-toggle--on:not(:disabled):hover {
@@ -1683,7 +1708,6 @@ html {
 /* Kamera OFF → tombol teal "Aktifkan Kamera" */
 .cam-toggle--off {
   background: rgba(13, 148, 136, 0.9);
-  color: #fff;
 }
 
 .cam-toggle--off:not(:disabled):hover {
