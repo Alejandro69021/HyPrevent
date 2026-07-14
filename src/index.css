@@ -1694,4 +1694,148 @@ html {
 .ai-motion-privacy-overlay {
   background: #0d0f14;
 }
+
+/* ── Plank gesture hint bar ── */
+.ai-motion-plank-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border: 1.5px solid transparent;
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.plank-hint--idle {
+  background: var(--hover-bg);
+  border-color: var(--accent-color);
+  color: var(--primary-color);
+}
+
+.plank-hint--running {
+  background: rgba(13, 148, 136, 0.12);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  animation: plank-pulse 2s ease-in-out infinite;
+}
+
+@keyframes plank-pulse {
+  0%, 100% { border-color: var(--primary-color); }
+  50%       { border-color: transparent; }
+}
+
+.plank-hint--stopped {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: var(--success-color);
+  color: var(--success-color);
+}
+
+.plank-hint-icon {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+/* Reset button inline in hint bar */
+.plank-reset-btn {
+  margin-left: auto;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--primary-color);
+  background: transparent;
+  color: var(--primary-color);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.plank-reset-btn:hover {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+/* Reset button inside stats panel */
+.plank-panel-reset-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  margin-top: 0.85rem;
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--primary-color);
+  background: var(--hover-bg);
+  color: var(--primary-color);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.plank-panel-reset-btn:hover {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+/* ── Plank phase badge (on-camera top-right, shows running timer) ── */
+.ai-motion-plank-phase-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 5px 12px;
+  border-radius: 999px;
+  z-index: 20;
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+
+.plank-badge--running {
+  background: rgba(13, 148, 136, 0.85);
+  color: #fff;
+  animation: badge-tick 1s steps(1) infinite;
+}
+
+@keyframes badge-tick {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+.plank-badge--stopped {
+  background: rgba(16, 185, 129, 0.85);
+  color: #fff;
+}
+
+/* ── Gesture detected badge (centre-top of camera) ── */
+.ai-motion-gesture-badge {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+  animation: gesture-pop 0.2s ease-out;
+}
+
+@keyframes gesture-pop {
+  from { transform: translateX(-50%) scale(0.85); opacity: 0; }
+  to   { transform: translateX(-50%) scale(1);    opacity: 1; }
+}
+
 
