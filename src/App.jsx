@@ -4,6 +4,7 @@ import IntroSection from './components/IntroSection';
 import ModuleSection from './components/ModuleSection';
 import ReferensiSection from './components/ReferensiSection';
 import JadwalSection from './components/JadwalSection';
+import AIMotionSection from './components/AIMotionSection';
 import { modules } from './data/modules';
 
 /**
@@ -26,6 +27,9 @@ export default function App() {
         }
         if (activePage === 'jadwal') {
             return <JadwalSection />;
+        }
+        if (activePage === 'ai-motion') {
+            return <AIMotionSection />;
         }
         const moduleData = modules.find((m) => m.id === activePage);
         if (moduleData) {

@@ -44,6 +44,18 @@ const menuItems = [
         ),
     },
     {
+        id: 'ai-motion',
+        label: 'Praktik Gerakan HyPrevent',
+        icon: (
+            <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="8" r="3" />
+                <path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
+                <path d="M2 12h2M20 12h2M12 2v2M12 20v2" />
+                <path d="M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+            </svg>
+        ),
+    },
+    {
         id: 'jadwal',
         label: 'Jadwal Latihan',
         icon: (
