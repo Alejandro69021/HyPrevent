@@ -91,6 +91,7 @@ export default function AIMotionSection() {
     const [facingMode, setFacingMode]             = useState("user"); // user | environment
     const [repCount, setRepCount]                 = useState(0);
     const [postureStatus, setPostureStatus]       = useState("Siap");
+    const [countdownVal, setCountdownVal]         = useState(null); // null | 3 | 2 | 1 | "Mulai!"
 
     const videoRef          = useRef(null);
     const canvasRef         = useRef(null);
@@ -105,6 +106,8 @@ export default function AIMotionSection() {
     const gestureRef        = useRef({ last: null, count: 0 });
     const repCountRef       = useRef(0);
     const stageRef          = useRef("up"); // up | down
+    const countdownFinishedRef = useRef(false);
+    const countdownIntervalRef = useRef(null);
 
     // Keep ref in sync; reset plank when exercise changes
     useEffect(() => {
@@ -116,12 +119,86 @@ export default function AIMotionSection() {
         gestureRef.current    = { last: null, count: 0 };
         setCurrentGesture(null);
 
+        // Cleanup hand landmarker if exercise changes from plank to something else
+        if (selectedExercise !== "plank" && handLandmarkerRef.current) {
+            try {
+                handLandmarkerRef.current.close();
+            } catch (e) {
+                console.error("Error closing hand landmarker:", e);
+            }
+            handLandmarkerRef.current = null;
+        }
+
+        // Dynamically load HandLandmarker if exercise changed to plank and camera is active
+        if (selectedExercise === "plank" && camStatus === "active" && !handLandmarkerRef.current) {
+            (async () => {
+                try {
+                    const { HandLandmarker, FilesetResolver } = await import(/* @vite-ignore */ MP_CDN);
+                    const vision = await FilesetResolver.forVisionTasks(MP_WASM);
+                    handLandmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
+                        baseOptions: { modelAssetPath: HAND_MODEL, delegate: "GPU" },
+                        runningMode: "VIDEO",
+                        numHands: 1,
+                        minHandDetectionConfidence: 0.5,
+                        minHandPresenceConfidence: 0.5,
+                        minTrackingConfidence: 0.5,
+                    });
+                } catch (e) {
+                    console.error("Error loading hand landmarker dynamically:", e);
+                }
+            })();
+        }
+
         // Reset reps
         setRepCount(0);
         repCountRef.current = 0;
         stageRef.current = "up";
         setPostureStatus("Siap");
-    }, [selectedExercise]);
+
+        // Cancel countdown if running
+        if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
+        }
+        setCountdownVal(null);
+        countdownFinishedRef.current = false;
+    }, [selectedExercise, camStatus]);
+
+    // Handle countdown timer trigger when pose is first detected
+    useEffect(() => {
+        if (
+            poseDetected &&
+            selectedExercise !== "" &&
+            selectedExercise !== "plank" &&
+            !countdownFinishedRef.current &&
+            !countdownIntervalRef.current
+        ) {
+            let count = 3;
+            setCountdownVal(3);
+            countdownIntervalRef.current = setInterval(() => {
+                count--;
+                if (count === 2) {
+                    setCountdownVal(2);
+                } else if (count === 1) {
+                    setCountdownVal(1);
+                } else if (count === 0) {
+                    setCountdownVal("Mulai!");
+                } else {
+                    clearInterval(countdownIntervalRef.current);
+                    countdownIntervalRef.current = null;
+                    setCountdownVal(null);
+                    countdownFinishedRef.current = true;
+                }
+            }, 1000);
+        }
+
+        // If pose is lost before countdown is complete, reset it so it starts again on return
+        if (!poseDetected && !countdownFinishedRef.current && countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
+            setCountdownVal(null);
+        }
+    }, [poseDetected, selectedExercise]);
 
     const resetPlank = useCallback(() => {
         plankPhaseRef.current = "idle";
@@ -153,9 +230,9 @@ export default function AIMotionSection() {
                             du.drawLandmarks(lm, { color: "#0d9488", fillColor: "#ffffff", lineWidth: 1.5, radius: 5 });
                         }
 
-                        // Repetition counting
+                        // Repetition counting (only works after countdown is complete)
                         const exercise = selectedExRef.current;
-                        if (exercise && exercise !== "plank") {
+                        if (exercise && exercise !== "plank" && countdownFinishedRef.current) {
                             const getPt = (idx) => {
                                 const pt = landmarks[idx];
                                 return pt && pt.visibility > 0.5 ? pt : null;
@@ -165,47 +242,20 @@ export default function AIMotionSection() {
                                 const hip = getPt(23);
                                 const knee = getPt(25);
                                 const ankle = getPt(27);
-                                if (hip && knee && ankle) {
-                                    const angle = calculateAngle(hip, knee, ankle);
-                                    if (angle < 100) {
-                                        if (stageRef.current === "up") {
-                                            stageRef.current = "down";
-                                            setPostureStatus("Turun");
-                                        }
-                                    }
-                                    if (angle > 155 && stageRef.current === "down") {
-                                        stageRef.current = "up";
-                                        repCountRef.current += 1;
-                                        setRepCount(repCountRef.current);
-                                        setPostureStatus("Naik");
-                                    }
-                                } else {
-                                    const rHip = getPt(24);
-                                    const rKnee = getPt(26);
-                                    const rAnkle = getPt(28);
-                                    if (rHip && rKnee && rAnkle) {
-                                        const angle = calculateAngle(rHip, rKnee, rAnkle);
-                                        if (angle < 100) {
-                                            if (stageRef.current === "up") {
-                                                stageRef.current = "down";
-                                                setPostureStatus("Turun");
-                                            }
-                                        }
-                                        if (angle > 155 && stageRef.current === "down") {
-                                            stageRef.current = "up";
-                                            repCountRef.current += 1;
-                                            setRepCount(repCountRef.current);
-                                            setPostureStatus("Naik");
-                                        }
-                                    }
-                                }
-                            } else if (exercise === "push-up") {
-                                const shoulder = getPt(11);
-                                const elbow = getPt(13);
-                                const wrist = getPt(15);
-                                if (shoulder && elbow && wrist) {
-                                    const angle = calculateAngle(shoulder, elbow, wrist);
-                                    if (angle < 95) {
+                                const rHip = getPt(24);
+                                const rKnee = getPt(26);
+                                const rAnkle = getPt(28);
+
+                                // Use left side or right side depending on visibility
+                                const actHip = hip || rHip;
+                                const actKnee = knee || rKnee;
+                                const actAnkle = ankle || rAnkle;
+
+                                if (actHip && actKnee && actAnkle) {
+                                    const angle = calculateAngle(actHip, actKnee, actAnkle);
+                                    console.log(`[AI Debug] Squat Knee Angle: ${angle.toFixed(1)}°, Stage: ${stageRef.current}`);
+                                    
+                                    if (angle < 90) {
                                         if (stageRef.current === "up") {
                                             stageRef.current = "down";
                                             setPostureStatus("Turun");
@@ -217,108 +267,129 @@ export default function AIMotionSection() {
                                         setRepCount(repCountRef.current);
                                         setPostureStatus("Naik");
                                     }
-                                } else {
-                                    const rShoulder = getPt(12);
-                                    const rElbow = getPt(14);
-                                    const rWrist = getPt(16);
-                                    if (rShoulder && rElbow && rWrist) {
-                                        const angle = calculateAngle(rShoulder, rElbow, rWrist);
-                                        if (angle < 95) {
-                                            if (stageRef.current === "up") {
-                                                stageRef.current = "down";
-                                                setPostureStatus("Turun");
-                                            }
+                                }
+                            } else if (exercise === "push-up") {
+                                const shoulder = getPt(11);
+                                const elbow = getPt(13);
+                                const wrist = getPt(15);
+                                const rShoulder = getPt(12);
+                                const rElbow = getPt(14);
+                                const rWrist = getPt(16);
+
+                                const actShoulder = shoulder || rShoulder;
+                                const actElbow = elbow || rElbow;
+                                const actWrist = wrist || rWrist;
+
+                                if (actShoulder && actElbow && actWrist) {
+                                    const angle = calculateAngle(actShoulder, actElbow, actWrist);
+                                    console.log(`[AI Debug] Push-Up Elbow Angle: ${angle.toFixed(1)}°, Stage: ${stageRef.current}`);
+
+                                    if (angle < 90) {
+                                        if (stageRef.current === "up") {
+                                            stageRef.current = "down";
+                                            setPostureStatus("Turun");
                                         }
-                                        if (angle > 160 && stageRef.current === "down") {
-                                            stageRef.current = "up";
-                                            repCountRef.current += 1;
-                                            setRepCount(repCountRef.current);
-                                            setPostureStatus("Naik");
-                                        }
+                                    }
+                                    if (angle > 160 && stageRef.current === "down") {
+                                        stageRef.current = "up";
+                                        repCountRef.current += 1;
+                                        setRepCount(repCountRef.current);
+                                        setPostureStatus("Naik");
                                     }
                                 }
                             } else if (exercise === "lunge") {
                                 const lHip = getPt(23); const lKnee = getPt(25); const lAnkle = getPt(27);
                                 const rHip = getPt(24); const rKnee = getPt(26); const rAnkle = getPt(28);
+
                                 let lAngle = lHip && lKnee && lAnkle ? calculateAngle(lHip, lKnee, lAnkle) : 180;
                                 let rAngle = rHip && rKnee && rAnkle ? calculateAngle(rHip, rKnee, rAnkle) : 180;
+                                
                                 const minAngle = Math.min(lAngle, rAngle);
-                                if (minAngle < 100) {
+                                console.log(`[AI Debug] Lunge Knee Angle: ${minAngle.toFixed(1)}°, Stage: ${stageRef.current}`);
+
+                                if (minAngle < 90) {
                                     if (stageRef.current === "up") {
                                         stageRef.current = "down";
                                         setPostureStatus("Turun");
                                     }
                                 }
-                                if (minAngle > 155 && stageRef.current === "down") {
+                                if (minAngle > 160 && stageRef.current === "down") {
                                     stageRef.current = "up";
                                     repCountRef.current += 1;
                                     setRepCount(repCountRef.current);
                                     setPostureStatus("Naik");
                                 }
                             } else if (exercise === "jumping-jack") {
-                                const lWrist = getPt(15); const rWrist = getPt(16);
-                                const lShoulder = getPt(11); const rShoulder = getPt(12);
-                                const lAnkle = getPt(27); const rAnkle = getPt(28);
-                                if (lWrist && rWrist && lShoulder && rShoulder && lAnkle && rAnkle) {
-                                    const handsRaised = lWrist.y < lShoulder.y && rWrist.y < rShoulder.y;
-                                    const feetWide = Math.abs(lAnkle.x - rAnkle.x) > 0.35;
-                                    if (handsRaised && feetWide) {
+                                const lHip = getPt(23); const lShoulder = getPt(11); const lElbow = getPt(13);
+                                const rHip = getPt(24); const rShoulder = getPt(12); const rElbow = getPt(14);
+
+                                if (lHip && lShoulder && lElbow && rHip && rShoulder && rElbow) {
+                                    const lAngle = calculateAngle(lHip, lShoulder, lElbow);
+                                    const rAngle = calculateAngle(rHip, rShoulder, rElbow);
+                                    console.log(`[AI Debug] Jumping Jack Shoulder Angles - L: ${lAngle.toFixed(1)}°, R: ${rAngle.toFixed(1)}°, Stage: ${stageRef.current}`);
+
+                                    if (lAngle > 150 && rAngle > 150) {
                                         if (stageRef.current === "down") {
                                             stageRef.current = "up";
                                             repCountRef.current += 1;
                                             setRepCount(repCountRef.current);
-                                            setPostureStatus("Lompat");
+                                            setPostureStatus("Buka");
                                         }
-                                    } else if (!handsRaised && !feetWide) {
+                                    } else if (lAngle < 30 && rAngle < 30) {
                                         stageRef.current = "down";
-                                        setPostureStatus("Siap");
+                                        setPostureStatus("Tutup");
                                     }
                                 }
                             } else if (exercise === "sit-up") {
                                 const shoulder = getPt(11); const hip = getPt(23); const knee = getPt(25);
-                                if (shoulder && hip && knee) {
-                                    const angle = calculateAngle(shoulder, hip, knee);
-                                    if (angle < 75) {
+                                const rShoulder = getPt(12); const rHip = getPt(24); const rKnee = getPt(26);
+
+                                const actShoulder = shoulder || rShoulder;
+                                const actHip = hip || rHip;
+                                const actKnee = knee || rKnee;
+
+                                if (actShoulder && actHip && actKnee) {
+                                    const angle = calculateAngle(actShoulder, actHip, actKnee);
+                                    console.log(`[AI Debug] Sit-Up Hip Angle: ${angle.toFixed(1)}°, Stage: ${stageRef.current}`);
+
+                                    if (angle < 80) {
                                         if (stageRef.current === "down") {
                                             stageRef.current = "up";
                                             repCountRef.current += 1;
                                             setRepCount(repCountRef.current);
                                             setPostureStatus("Naik");
                                         }
-                                    } else if (angle > 130) {
+                                    } else if (angle > 160) {
                                         stageRef.current = "down";
-                                        setPostureStatus("Rebah");
-                                    }
-                                } else {
-                                    const rShoulder = getPt(12); const rHip = getPt(24); const rKnee = getPt(26);
-                                    if (rShoulder && rHip && rKnee) {
-                                        const angle = calculateAngle(rShoulder, rHip, rKnee);
-                                        if (angle < 75) {
-                                            if (stageRef.current === "down") {
-                                                stageRef.current = "up";
-                                                repCountRef.current += 1;
-                                                setRepCount(repCountRef.current);
-                                                setPostureStatus("Naik");
-                                            }
-                                        } else if (angle > 130) {
-                                            stageRef.current = "down";
-                                            setPostureStatus("Rebah");
-                                        }
+                                        setPostureStatus("Turun");
                                     }
                                 }
                             } else if (exercise === "burpee") {
-                                const hip = getPt(23); const knee = getPt(25); const ankle = getPt(27);
-                                const shoulder = getPt(11); const elbow = getPt(13); const wrist = getPt(15);
-                                if (hip && knee && ankle && shoulder && elbow && wrist) {
+                                const lKnee = getPt(25); const lAnkle = getPt(27); const lHip = getPt(23);
+                                const lShoulder = getPt(11); const lElbow = getPt(13); const lWrist = getPt(15);
+                                const rKnee = getPt(26); const rAnkle = getPt(28); const rHip = getPt(24);
+                                const rShoulder = getPt(12); const rElbow = getPt(14); const rWrist = getPt(16);
+
+                                const knee = lKnee || rKnee;
+                                const ankle = lAnkle || rAnkle;
+                                const hip = lHip || rHip;
+                                const shoulder = lShoulder || rShoulder;
+                                const elbow = lElbow || rElbow;
+                                const wrist = lWrist || rWrist;
+
+                                if (knee && ankle && hip && shoulder && elbow && wrist) {
                                     const kneeAngle = calculateAngle(hip, knee, ankle);
                                     const elbowAngle = calculateAngle(shoulder, elbow, wrist);
-                                    if (kneeAngle > 155 && elbowAngle < 110) {
+                                    const handsRaised = wrist.y < shoulder.y;
+                                    console.log(`[AI Debug] Burpee Knee Angle: ${kneeAngle.toFixed(1)}°, Elbow: ${elbowAngle.toFixed(1)}°, Stage: ${stageRef.current}`);
+
+                                    if (kneeAngle < 90) {
                                         if (stageRef.current === "up") {
                                             stageRef.current = "down";
                                             setPostureStatus("Turun");
                                         }
                                     }
-                                    if (kneeAngle < 120 && stageRef.current === "down") {
+                                    if (handsRaised && kneeAngle > 160 && stageRef.current === "down") {
                                         stageRef.current = "up";
                                         repCountRef.current += 1;
                                         setRepCount(repCountRef.current);
@@ -380,13 +451,16 @@ export default function AIMotionSection() {
             setStatusMsg("Mempersiapkan model AI…");
 
             // Load vision CDN imports and tasks resolver only if needed
-            if (!landmarkerRef.current || !handLandmarkerRef.current) {
+            const needsPose = !landmarkerRef.current;
+            const needsHand = selectedExRef.current === "plank" && !handLandmarkerRef.current;
+
+            if (needsPose || needsHand) {
                 const { PoseLandmarker, HandLandmarker, FilesetResolver } =
                     await import(/* @vite-ignore */ MP_CDN);
 
                 const vision = await FilesetResolver.forVisionTasks(MP_WASM);
 
-                if (!landmarkerRef.current) {
+                if (needsPose) {
                     setStatusMsg("Memuat model pose…");
                     landmarkerRef.current = await PoseLandmarker.createFromOptions(vision, {
                         baseOptions: { modelAssetPath: POSE_MODEL, delegate: "GPU" },
@@ -395,7 +469,7 @@ export default function AIMotionSection() {
                     });
                 }
 
-                if (!handLandmarkerRef.current) {
+                if (needsHand) {
                     setStatusMsg("Memuat model gesture tangan…");
                     handLandmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
                         baseOptions: { modelAssetPath: HAND_MODEL, delegate: "GPU" },
@@ -507,9 +581,10 @@ export default function AIMotionSection() {
             ? "Buka 5 jari (telapak tangan terbuka) untuk memulai timer"
             : "Kepalkan tangan untuk menghentikan dan mereset timer";
 
-    const gestureLabel =
+    const gestureLabel = isPlank && currentGesture ? (
         currentGesture === "open_hand" ? "Mulai (Telapak Terbuka)" :
-        currentGesture === "fist"      ? "Reset (Kepalan Tangan)" : null;
+        currentGesture === "fist"      ? "Reset (Kepalan Tangan)" : null
+    ) : null;
 
     // ─────────────────────────────────────────────────────────
     return (
@@ -647,6 +722,13 @@ export default function AIMotionSection() {
                         {camStatus === "active" && (
                             <div className={`ai-motion-pose-indicator ${poseDetected ? "detected" : "not-detected"}`}>
                                 {poseDetected ? "✓ Pose Terdeteksi" : "Arahkan tubuh ke kamera"}
+                            </div>
+                        )}
+
+                        {/* Countdown Overlay */}
+                        {camStatus === "active" && countdownVal !== null && (
+                            <div className="ai-motion-countdown-overlay">
+                                <span className="countdown-number">{countdownVal}</span>
                             </div>
                         )}
 
