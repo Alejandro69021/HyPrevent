@@ -44,18 +44,24 @@ function detectGesture(lm) {
 
 const OpenHandIcon = () => (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
-        <path d="M18 10V5a1.5 1.5 0 0 0-3 0v4M15 9V4a1.5 1.5 0 0 0-3 0v5M12 9V3a1.5 1.5 0 0 0-3 0v6M9 9.5V5.5a1.5 1.5 0 0 0-3 0v8.5" />
-        <path d="M6 14v-4a1.5 1.5 0 0 0-3 0v6c0 3.87 3.13 7 7 7s7-3.13 7-7v-2a1.5 1.5 0 0 0-3 0" />
+        <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v5" />
+        <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6" />
+        <path d="M10 10.5V5a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8.5" />
+        <path d="M6 14v-5a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v7a7 7 0 0 0 14 0v-3" />
     </svg>
 );
 
 const FistIcon = () => (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
-        <path d="M6 10h12v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-9z" />
-        <path d="M6 10V7.5A1.5 1.5 0 0 1 7.5 6h0A1.5 1.5 0 0 1 9 7.5V10" />
-        <path d="M9 10V6.5A1.5 1.5 0 0 1 10.5 5h0A1.5 1.5 0 0 1 12 6.5V10" />
-        <path d="M12 10V7.5A1.5 1.5 0 0 1 13.5 6h0A1.5 1.5 0 0 1 15 7.5V10" />
-        <path d="M15 10V8.5A1.5 1.5 0 0 1 16.5 7h0A1.5 1.5 0 0 1 18 8.5V10" />
+        {/* Palm base and wrist side */}
+        <path d="M6 18c0 3 2.5 4 6 4s6-1 6-4V11" />
+        {/* Four curled fingers */}
+        <path d="M6 11V8a1.5 1.5 0 0 1 3 0v3" />
+        <path d="M9 11V7.5A1.5 1.5 0 0 1 10.5 6h0A1.5 1.5 0 0 1 12 7.5V11" />
+        <path d="M12 11V7.5A1.5 1.5 0 0 1 13.5 6h0A1.5 1.5 0 0 1 15 7.5V11" />
+        <path d="M15 11V8.5A1.5 1.5 0 0 1 16.5 7h0A1.5 1.5 0 0 1 18 8.5V11" />
+        {/* Thumb wrapped across standard fist front */}
+        <path d="M5 14h6.5a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2H8" />
     </svg>
 );
 
