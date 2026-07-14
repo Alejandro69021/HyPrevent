@@ -1475,8 +1475,7 @@ html {
 .ai-motion-pose-indicator {
   position: absolute;
   bottom: 14px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 14px;
   font-size: 0.78rem;
   font-weight: 600;
   padding: 5px 14px;
@@ -1642,9 +1641,11 @@ html {
     font-size: 1.35rem;
   }
 
-  /* Prevent overlapping with camera controls on mobile */
+  /* Prevent overlapping with camera controls on mobile by moving it to the top-left */
   .ai-motion-pose-indicator {
-    bottom: 58px !important;
+    bottom: auto !important;
+    top: 14px !important;
+    left: 14px !important;
   }
 }
 
