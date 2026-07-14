@@ -1,8 +1,8 @@
-import { useState } from "react";
+﻿import { useState, useEffect, useRef, useCallback } from "react";
 
 /**
- * AIMotionSection — Placeholder page for AI Motion Detector feature.
- * Shows: camera view area, exercise dropdown, and reps/posture panel.
+ * AIMotionSection — Live pose detection via MediaPipe Tasks-Vision CDN.
+ * Camera mirrored, skeleton overlay drawn on canvas.
  */
 
 const EXERCISE_OPTIONS = [
@@ -16,15 +16,136 @@ const EXERCISE_OPTIONS = [
     { value: "burpee", label: "Burpee" },
 ];
 
+const MP_CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm";
+const MP_WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+const MODEL_URL =
+    "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+
 export default function AIMotionSection() {
     const [selectedExercise, setSelectedExercise] = useState("");
+    const [camStatus, setCamStatus] = useState("loading"); // loading | active | error
+    const [statusMsg, setStatusMsg] = useState("Memuat model AI…");
+    const [poseDetected, setPoseDetected] = useState(false);
+
+    const videoRef = useRef(null);
+    const canvasRef = useRef(null);
+    const landmarkerRef = useRef(null);
+    const animRef = useRef(null);
+    const streamRef = useRef(null);
+    const lastTimeRef = useRef(-1);
+
+    const startCamera = useCallback(async () => {
+        try {
+            setStatusMsg("Memuat model AI…");
+
+            // Load MediaPipe via CDN — @vite-ignore prevents Vite bundling the URL
+            const { PoseLandmarker, FilesetResolver, DrawingUtils } =
+                await import(/* @vite-ignore */ MP_CDN);
+
+            setStatusMsg("Menginisialisasi detektor…");
+            const vision = await FilesetResolver.forVisionTasks(MP_WASM);
+
+            landmarkerRef.current = await PoseLandmarker.createFromOptions(vision, {
+                baseOptions: {
+                    modelAssetPath: MODEL_URL,
+                    delegate: "GPU",
+                },
+                runningMode: "VIDEO",
+                numPoses: 1,
+            });
+
+            setStatusMsg("Meminta akses kamera…");
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 640, height: 480, facingMode: "user" },
+                audio: false,
+            });
+            streamRef.current = stream;
+
+            const video = videoRef.current;
+            video.srcObject = stream;
+            await video.play();
+
+            // Sync canvas to actual video dimensions
+            video.addEventListener("loadedmetadata", () => {
+                canvasRef.current.width = video.videoWidth;
+                canvasRef.current.height = video.videoHeight;
+            });
+
+            setCamStatus("active");
+            setStatusMsg("Mendeteksi pose…");
+
+            const ctx = canvasRef.current.getContext("2d");
+            const drawingUtils = new DrawingUtils(ctx);
+
+            const detect = () => {
+                if (video.readyState >= 2 && video.currentTime !== lastTimeRef.current) {
+                    lastTimeRef.current = video.currentTime;
+                    const results = landmarkerRef.current.detectForVideo(
+                        video,
+                        performance.now()
+                    );
+
+                    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
+                    const hasPose = results.landmarks.length > 0;
+                    setPoseDetected(hasPose);
+
+                    for (const lm of results.landmarks) {
+                        // Skeleton connectors
+                        drawingUtils.drawConnectors(lm, PoseLandmarker.POSE_CONNECTIONS, {
+                            color: "#5eead4",
+                            lineWidth: 2.5,
+                        });
+                        // Joint dots
+                        drawingUtils.drawLandmarks(lm, {
+                            color: "#0d9488",
+                            fillColor: "#ffffff",
+                            lineWidth: 1.5,
+                            radius: 5,
+                        });
+                    }
+                }
+                animRef.current = requestAnimationFrame(detect);
+            };
+
+            detect();
+        } catch (err) {
+            console.error("MediaPipe init error:", err);
+            setCamStatus("error");
+            if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+                setStatusMsg("Izin kamera ditolak. Aktifkan kamera di pengaturan browser.");
+            } else if (err.name === "NotFoundError") {
+                setStatusMsg("Tidak ada kamera ditemukan di perangkat ini.");
+            } else {
+                setStatusMsg("Gagal memuat AI. Pastikan koneksi internet aktif.");
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        startCamera();
+        return () => {
+            cancelAnimationFrame(animRef.current);
+            streamRef.current?.getTracks().forEach((t) => t.stop());
+            landmarkerRef.current?.close();
+        };
+    }, [startCamera]);
+
+    const exerciseLabel =
+        selectedExercise
+            ? EXERCISE_OPTIONS.find((o) => o.value === selectedExercise)?.label
+            : "—";
 
     return (
         <section className="ai-motion-section">
             {/* Header */}
             <div className="ai-motion-header">
                 <div className="ai-motion-badge">
-                    <img src="/HyPrevent.png" alt="HyPrevent Logo" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                    <img
+                        src="/HyPrevent.png"
+                        alt="HyPrevent Logo"
+                        style={{ width: "18px", height: "18px", objectFit: "contain" }}
+                    />
                     <span>Powered by HyPrevent</span>
                 </div>
                 <h2 className="ai-motion-title">Praktik Gerakan HyPrevent</h2>
@@ -33,7 +154,7 @@ export default function AIMotionSection() {
                 </p>
             </div>
 
-            {/* Dropdown gerakan */}
+            {/* Dropdown */}
             <div className="ai-motion-controls">
                 <label htmlFor="exercise-select" className="ai-motion-label">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -60,34 +181,76 @@ export default function AIMotionSection() {
                 </div>
             </div>
 
-            {/* Main area: Camera + Panel */}
+            {/* Main: Camera + Panel */}
             <div className="ai-motion-main">
-                {/* Camera placeholder */}
+                {/* Camera */}
                 <div className="ai-motion-camera">
                     <div className="ai-motion-camera-inner">
+                        {/* Corner brackets always visible */}
                         <span className="cam-corner cam-corner--tl" />
                         <span className="cam-corner cam-corner--tr" />
                         <span className="cam-corner cam-corner--bl" />
                         <span className="cam-corner cam-corner--br" />
 
-                        <div className="ai-motion-camera-placeholder">
-                            <div className="ai-motion-cam-icon">
-                                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M23 7l-7 5 7 5V7z" />
-                                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                                </svg>
-                            </div>
-                            <p className="ai-motion-cam-label">Tampilan Kamera</p>
-                            <p className="ai-motion-cam-sub">Webcam / Kamera HP akan tampil di sini</p>
-                            <div className="ai-motion-cam-status">
-                                <span className="cam-dot" />
-                                <span>Menunggu koneksi kamera…</span>
-                            </div>
+                        {/* Live video + canvas — mirrored */}
+                        <div className="ai-motion-video-wrapper">
+                            <video
+                                ref={videoRef}
+                                className="ai-motion-video"
+                                playsInline
+                                muted
+                            />
+                            <canvas
+                                ref={canvasRef}
+                                className="ai-motion-canvas"
+                            />
                         </div>
+
+                        {/* Overlay: loading / error state */}
+                        {camStatus !== "active" && (
+                            <div className="ai-motion-camera-placeholder">
+                                <div className="ai-motion-cam-icon">
+                                    {camStatus === "error" ? (
+                                        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <circle cx="12" cy="12" r="10" />
+                                            <line x1="12" y1="8" x2="12" y2="12" />
+                                            <line x1="12" y1="16" x2="12.01" y2="16" />
+                                        </svg>
+                                    ) : (
+                                        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M23 7l-7 5 7 5V7z" />
+                                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                                        </svg>
+                                    )}
+                                </div>
+                                <p className="ai-motion-cam-label">
+                                    {camStatus === "error" ? "Kamera Error" : "Mempersiapkan…"}
+                                </p>
+                                <div className="ai-motion-cam-status">
+                                    {camStatus !== "error" && <span className="cam-dot" />}
+                                    <span>{statusMsg}</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Live badge */}
+                        {camStatus === "active" && (
+                            <div className="ai-motion-live-badge">
+                                <span className="cam-dot cam-dot--live" />
+                                LIVE
+                            </div>
+                        )}
+
+                        {/* Pose detected indicator */}
+                        {camStatus === "active" && (
+                            <div className={`ai-motion-pose-indicator ${poseDetected ? "detected" : "not-detected"}`}>
+                                {poseDetected ? "✓ Pose Terdeteksi" : "Arahkan tubuh ke kamera"}
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* Stats panel */}
+                {/* Stats Panel */}
                 <div className="ai-motion-panel">
                     <div className="ai-motion-stat">
                         <div className="stat-icon stat-icon--reps">
@@ -115,7 +278,12 @@ export default function AIMotionSection() {
                         </div>
                         <div className="stat-info">
                             <span className="stat-label">Status Postur</span>
-                            <span className="stat-value stat-value--posture" id="posture-status">—</span>
+                            <span
+                                className="stat-value stat-value--posture"
+                                style={{ color: poseDetected ? "var(--success-color)" : "var(--text-light)" }}
+                            >
+                                {poseDetected ? "Terdeteksi ✓" : "—"}
+                            </span>
                             <span className="stat-unit">real-time</span>
                         </div>
                     </div>
@@ -130,21 +298,40 @@ export default function AIMotionSection() {
                         </div>
                         <div className="stat-info">
                             <span className="stat-label">Gerakan Dipilih</span>
-                            <span className="stat-value stat-value--exercise" id="exercise-display">
-                                {selectedExercise
-                                    ? EXERCISE_OPTIONS.find((o) => o.value === selectedExercise)?.label
-                                    : "—"}
-                            </span>
+                            <span className="stat-value stat-value--exercise">{exerciseLabel}</span>
                         </div>
                     </div>
 
-                    <button className="ai-motion-start-btn" disabled>
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polygon points="5 3 19 12 5 21 5 3" />
-                        </svg>
-                        Mulai Deteksi
-                        <span className="ai-motion-coming-badge">Segera Hadir</span>
-                    </button>
+                    <div className="ai-motion-divider" />
+
+                    <div className="ai-motion-stat">
+                        <div className="stat-icon stat-icon--reps">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10" />
+                                <path d="M12 8v4l3 3" />
+                            </svg>
+                        </div>
+                        <div className="stat-info">
+                            <span className="stat-label">Kamera</span>
+                            <span
+                                className="stat-value stat-value--posture"
+                                style={{
+                                    color:
+                                        camStatus === "active"
+                                            ? "var(--success-color)"
+                                            : camStatus === "error"
+                                            ? "#ef4444"
+                                            : "var(--text-light)",
+                                }}
+                            >
+                                {camStatus === "active"
+                                    ? "Aktif ✓"
+                                    : camStatus === "error"
+                                    ? "Error"
+                                    : "Memuat…"}
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -155,7 +342,10 @@ export default function AIMotionSection() {
                     <line x1="12" y1="8" x2="12" y2="12" />
                     <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
-                <span>Fitur ini akan menggunakan kamera perangkat Anda untuk mendeteksi gerakan secara real-time. Tidak ada data yang dikirim ke server.</span>
+                <span>
+                    Kamera hanya berjalan di browser Anda — tidak ada video yang dikirim ke server.
+                    Deteksi pose menggunakan Google MediaPipe berjalan 100% lokal.
+                </span>
             </div>
         </section>
     );
