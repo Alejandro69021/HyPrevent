@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 /**
  * AIMotionSection — Live pose detection via MediaPipe Tasks-Vision CDN.
@@ -23,9 +23,10 @@ const MODEL_URL =
 
 export default function AIMotionSection() {
     const [selectedExercise, setSelectedExercise] = useState("");
-    const [camStatus, setCamStatus] = useState("loading"); // loading | active | error
+    const [camStatus, setCamStatus] = useState("loading"); // loading | active | stopped | error
     const [statusMsg, setStatusMsg] = useState("Memuat model AI…");
     const [poseDetected, setPoseDetected] = useState(false);
+    const [isCamOn, setIsCamOn] = useState(true);
 
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
@@ -33,6 +34,7 @@ export default function AIMotionSection() {
     const animRef = useRef(null);
     const streamRef = useRef(null);
     const lastTimeRef = useRef(-1);
+    const detectLoopRef = useRef(null); // store detect fn for restart
 
     const startCamera = useCallback(async () => {
         try {
@@ -122,6 +124,81 @@ export default function AIMotionSection() {
         }
     }, []);
 
+    // Stop camera tracks + animation loop
+    const stopCamera = useCallback(() => {
+        cancelAnimationFrame(animRef.current);
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        if (videoRef.current) videoRef.current.srcObject = null;
+        if (canvasRef.current) {
+            const ctx = canvasRef.current.getContext("2d");
+            ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        }
+        setPoseDetected(false);
+        setCamStatus("stopped");
+        setIsCamOn(false);
+    }, []);
+
+    // Restart camera without re-loading MediaPipe model
+    const restartCamera = useCallback(async () => {
+        if (!landmarkerRef.current) {
+            // Model not loaded yet — do full start
+            setIsCamOn(true);
+            setCamStatus("loading");
+            startCamera();
+            return;
+        }
+        try {
+            setIsCamOn(true);
+            setCamStatus("loading");
+            setStatusMsg("Meminta akses kamera…");
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 640, height: 480, facingMode: "user" },
+                audio: false,
+            });
+            streamRef.current = stream;
+
+            const video = videoRef.current;
+            video.srcObject = stream;
+            await video.play();
+
+            canvasRef.current.width = video.videoWidth || 640;
+            canvasRef.current.height = video.videoHeight || 480;
+
+            setCamStatus("active");
+            setStatusMsg("Mendeteksi pose…");
+
+            // Dynamic import only needed for DrawingUtils — model already loaded
+            const { PoseLandmarker, DrawingUtils } =
+                await import(/* @vite-ignore */ MP_CDN);
+            const ctx = canvasRef.current.getContext("2d");
+            const drawingUtils = new DrawingUtils(ctx);
+
+            const detect = () => {
+                if (video.readyState >= 2 && video.currentTime !== lastTimeRef.current) {
+                    lastTimeRef.current = video.currentTime;
+                    const results = landmarkerRef.current.detectForVideo(video, performance.now());
+                    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+                    setPoseDetected(results.landmarks.length > 0);
+                    for (const lm of results.landmarks) {
+                        drawingUtils.drawConnectors(lm, PoseLandmarker.POSE_CONNECTIONS, { color: "#5eead4", lineWidth: 2.5 });
+                        drawingUtils.drawLandmarks(lm, { color: "#0d9488", fillColor: "#ffffff", lineWidth: 1.5, radius: 5 });
+                    }
+                }
+                animRef.current = requestAnimationFrame(detect);
+            };
+            detect();
+        } catch (err) {
+            setCamStatus("error");
+            setStatusMsg("Gagal membuka kamera. Coba lagi.");
+        }
+    }, [startCamera]);
+
+    const handleToggleCam = useCallback(() => {
+        if (isCamOn) stopCamera();
+        else restartCamera();
+    }, [isCamOn, stopCamera, restartCamera]);
+
     useEffect(() => {
         startCamera();
         return () => {
@@ -135,6 +212,7 @@ export default function AIMotionSection() {
         selectedExercise
             ? EXERCISE_OPTIONS.find((o) => o.value === selectedExercise)?.label
             : "—";
+
 
     return (
         <section className="ai-motion-section">
@@ -186,7 +264,7 @@ export default function AIMotionSection() {
                 {/* Camera */}
                 <div className="ai-motion-camera">
                     <div className="ai-motion-camera-inner">
-                        {/* Corner brackets always visible */}
+                        {/* Corner brackets */}
                         <span className="cam-corner cam-corner--tl" />
                         <span className="cam-corner cam-corner--tr" />
                         <span className="cam-corner cam-corner--bl" />
@@ -194,20 +272,29 @@ export default function AIMotionSection() {
 
                         {/* Live video + canvas — mirrored */}
                         <div className="ai-motion-video-wrapper">
-                            <video
-                                ref={videoRef}
-                                className="ai-motion-video"
-                                playsInline
-                                muted
-                            />
-                            <canvas
-                                ref={canvasRef}
-                                className="ai-motion-canvas"
-                            />
+                            <video ref={videoRef} className="ai-motion-video" playsInline muted />
+                            <canvas ref={canvasRef} className="ai-motion-canvas" />
                         </div>
 
-                        {/* Overlay: loading / error state */}
-                        {camStatus !== "active" && (
+                        {/* Privacy overlay when camera is off */}
+                        {camStatus === "stopped" && (
+                            <div className="ai-motion-camera-placeholder ai-motion-privacy-overlay">
+                                <div className="ai-motion-cam-icon">
+                                    <svg viewBox="0 0 24 24" width="52" height="52" fill="none" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                        <line x1="1" y1="1" x2="23" y2="23" />
+                                    </svg>
+                                </div>
+                                <p className="ai-motion-cam-label">Kamera Dimatikan</p>
+                                <p style={{ fontSize: "0.8rem", color: "#4b5563", marginTop: "0.25rem" }}>
+                                    Privasi Anda terlindungi
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Loading / error overlay */}
+                        {(camStatus === "loading" || camStatus === "error") && (
                             <div className="ai-motion-camera-placeholder">
                                 <div className="ai-motion-cam-icon">
                                     {camStatus === "error" ? (
@@ -233,7 +320,7 @@ export default function AIMotionSection() {
                             </div>
                         )}
 
-                        {/* Live badge */}
+                        {/* LIVE badge */}
                         {camStatus === "active" && (
                             <div className="ai-motion-live-badge">
                                 <span className="cam-dot cam-dot--live" />
@@ -241,12 +328,34 @@ export default function AIMotionSection() {
                             </div>
                         )}
 
-                        {/* Pose detected indicator */}
+                        {/* Pose indicator */}
                         {camStatus === "active" && (
                             <div className={`ai-motion-pose-indicator ${poseDetected ? "detected" : "not-detected"}`}>
                                 {poseDetected ? "✓ Pose Terdeteksi" : "Arahkan tubuh ke kamera"}
                             </div>
                         )}
+
+                        {/* Camera toggle button */}
+                        <button
+                            className={`ai-motion-cam-toggle ${isCamOn ? "cam-toggle--on" : "cam-toggle--off"}`}
+                            onClick={handleToggleCam}
+                            title={isCamOn ? "Matikan Kamera" : "Aktifkan Kamera"}
+                            disabled={camStatus === "loading"}
+                        >
+                            {isCamOn ? (
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                    <line x1="1" y1="1" x2="23" y2="23" />
+                                </svg>
+                            ) : (
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M23 7l-7 5 7 5V7z" />
+                                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                                </svg>
+                            )}
+                            <span>{isCamOn ? "Matikan Kamera" : "Aktifkan Kamera"}</span>
+                        </button>
                     </div>
                 </div>
 

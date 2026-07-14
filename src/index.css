@@ -1638,4 +1638,60 @@ html {
   .ai-motion-title {
     font-size: 1.35rem;
   }
-}
+}
+
+/* Camera toggle button */
+.ai-motion-cam-toggle {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: none;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 30;
+  backdrop-filter: blur(8px);
+  transition: background 0.2s, color 0.2s, opacity 0.2s, transform 0.15s;
+  letter-spacing: 0.02em;
+}
+
+.ai-motion-cam-toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ai-motion-cam-toggle:not(:disabled):active {
+  transform: scale(0.96);
+}
+
+/* Kamera ON → tombol merah "Matikan Kamera" */
+.cam-toggle--on {
+  background: rgba(239, 68, 68, 0.88);
+  color: #fff;
+}
+
+.cam-toggle--on:not(:disabled):hover {
+  background: rgba(220, 38, 38, 0.95);
+}
+
+/* Kamera OFF → tombol teal "Aktifkan Kamera" */
+.cam-toggle--off {
+  background: rgba(13, 148, 136, 0.9);
+  color: #fff;
+}
+
+.cam-toggle--off:not(:disabled):hover {
+  background: rgba(15, 118, 110, 0.95);
+}
+
+/* Privacy overlay dark background */
+.ai-motion-privacy-overlay {
+  background: #0d0f14;
+}
+
