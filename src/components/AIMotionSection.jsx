@@ -23,21 +23,22 @@ const HAND_MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmar
 
 const GESTURE_HOLD = 25; // consecutive frames to confirm gesture (~0.8s)
 
-/** Detect 'thumbs_up' or 'open_hand' from hand landmarks array */
+/** Detect 'open_hand' (5 jari terbuka) or 'fist' (kepalan) */
 function detectGesture(lm) {
-    // y: 0=top, 1=bottom. thumbUp = tip clearly above mcp
-    const thumbUp = lm[4].y < lm[2].y - 0.04;
-    const idxCurl = lm[8].y  > lm[7].y;
-    const midCurl = lm[12].y > lm[11].y;
-    const rngCurl = lm[16].y > lm[15].y;
-    const pnkCurl = lm[20].y > lm[19].y;
-    if (thumbUp && idxCurl && midCurl && rngCurl && pnkCurl) return "thumbs_up";
-
+    // y: 0=top, 1=bottom.
     const idxOpen = lm[8].y  < lm[7].y;
     const midOpen = lm[12].y < lm[11].y;
     const rngOpen = lm[16].y < lm[15].y;
     const pnkOpen = lm[20].y < lm[19].y;
+    // open_hand: at least 4 fingers clearly extended
     if (idxOpen && midOpen && rngOpen && pnkOpen) return "open_hand";
+
+    const idxCurl = lm[8].y  > lm[7].y;
+    const midCurl = lm[12].y > lm[11].y;
+    const rngCurl = lm[16].y > lm[15].y;
+    const pnkCurl = lm[20].y > lm[19].y;
+    // fist: all 4 fingers curled (kepalan)
+    if (idxCurl && midCurl && rngCurl && pnkCurl) return "fist";
     return null;
 }
 
@@ -119,11 +120,11 @@ export default function AIMotionSection() {
 
                         if (selectedExRef.current === "plank" && gestureRef.current.count === GESTURE_HOLD) {
                             gestureRef.current.count = 0;
-                            if (gesture === "thumbs_up" && plankPhaseRef.current === "idle") {
+                            if (gesture === "open_hand" && plankPhaseRef.current === "idle") {
                                 plankPhaseRef.current = "running";
                                 plankStartRef.current = Date.now();
                                 setPlankPhase("running");
-                            } else if (gesture === "open_hand" && plankPhaseRef.current === "running") {
+                            } else if (gesture === "fist" && plankPhaseRef.current === "running") {
                                 const elapsed = Math.floor((Date.now() - plankStartRef.current) / 1000);
                                 plankPhaseRef.current = "stopped";
                                 setPlankDuration(elapsed);
@@ -278,13 +279,13 @@ export default function AIMotionSection() {
         : "—";
 
     const plankHint =
-        plankPhase === "idle"    ? "👍  Acungkan jempol untuk mulai timer" :
-        plankPhase === "running" ? "✋  Buka 5 jari untuk menghentikan timer" :
+        plankPhase === "idle"    ? "✋  Buka 5 jari untuk mulai timer" :
+        plankPhase === "running" ? "✊  Kepalkan tangan untuk menghentikan timer" :
                                    "🏆  Sesi selesai! Tekan Reset untuk coba lagi.";
 
     const gestureLabel =
-        currentGesture === "thumbs_up" ? "👍 Jempol terdeteksi" :
-        currentGesture === "open_hand" ? "✋ 5 jari terdeteksi" : null;
+        currentGesture === "open_hand" ? "✋ 5 Jari — mulai!" :
+        currentGesture === "fist"      ? "✊ Kepalan — berhenti!" : null;
 
     // ─────────────────────────────────────────────────────────
     return (
@@ -325,7 +326,7 @@ export default function AIMotionSection() {
             {isPlank && camStatus === "active" && (
                 <div className={`ai-motion-plank-hint plank-hint--${plankPhase}`}>
                     <span className="plank-hint-icon">
-                        {plankPhase === "idle" ? "🤙" : plankPhase === "running" ? "⏱️" : "🏆"}
+                        {plankPhase === "idle" ? "✋" : plankPhase === "running" ? "⏱️" : "🏆"}
                     </span>
                     <span>{plankHint}</span>
                     {plankPhase === "stopped" && (
