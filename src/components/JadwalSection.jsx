@@ -107,7 +107,10 @@ export default function JadwalSection() {
             }
 
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Server error');
+            if (!res.ok) {
+                const errorMsg = data.details ? `${data.error} Detail: ${data.details}` : (data.error || 'Server error');
+                throw new Error(errorMsg);
+            }
 
             const aiMsg = { role: 'ai', text: data.text };
             if (data.scheduledEvent) {
