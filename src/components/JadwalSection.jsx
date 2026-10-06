@@ -103,7 +103,7 @@ export default function JadwalSection() {
             // Detect non-JSON response (backend not running → Vite returns HTML)
             const contentType = res.headers.get('content-type') || '';
             if (!contentType.includes('application/json')) {
-                throw new Error('Backend server belum jalan. Jalankan perintah: npm run server');
+                throw new Error('Layanan sedang tidak tersedia. Silakan coba lagi nanti.');
             }
 
             const data = await res.json();
@@ -124,7 +124,7 @@ export default function JadwalSection() {
             setHistory(data.updatedHistory || []);
         } catch (err) {
             const errorText = err.message?.includes('Unexpected token')
-                ? 'Backend server belum jalan. Jalankan perintah: npm run server'
+                ? 'Layanan sedang tidak tersedia. Silakan coba lagi nanti.'
                 : err.message;
             setMessages(prev => [...prev, { role: 'ai', text: `⚠️ ${errorText}` }]);
         } finally {

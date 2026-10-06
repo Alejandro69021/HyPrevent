@@ -49,7 +49,7 @@ export default function App() {
                 <footer className="app-footer">
                     <p className="footer-pill">© 2026 — Promosi Kesehatan</p>
                     <div className="footer-dev">
-                        <span className="footer-dev-label">Develop by</span>
+                        <span className="footer-dev-label">Developed by</span>
                         <span className="footer-dev-name">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <polyline points="16 18 22 12 16 6" />

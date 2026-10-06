@@ -2,6 +2,7 @@
  * IntroSection — Home page content.
  * Uses original content-section structure with restored font sizes.
  */
+import { MEDICAL_DISCLAIMER } from '../config/medical.js';
 export default function IntroSection() {
     return (
         <div className="content-section animate-fade-in">
@@ -57,6 +58,11 @@ export default function IntroSection() {
                     <h3>Panduan Praktis</h3>
                     <p>Langkah-langkah praktis yang dapat langsung diterapkan dalam kehidupan sehari-hari</p>
                 </div>
+            </div>
+
+            {/* Disclaimer medis */}
+            <div className="medical-disclaimer">
+                <p>⚕️ {MEDICAL_DISCLAIMER}</p>
             </div>
         </div>
     );

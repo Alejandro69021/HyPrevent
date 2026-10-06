@@ -16,3 +16,9 @@
   to = "/.netlify/functions/calendar-status"
   status = 200
   force = true
+
+# SPA fallback — semua route non-file dikembalikan ke index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

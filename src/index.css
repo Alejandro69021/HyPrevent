@@ -1931,5 +1931,21 @@ html {
   }
 }
 
+/* ─── Medical Disclaimer ─── */
+.medical-disclaimer {
+  margin-top: 2.5rem;
+  padding: 1rem 1.25rem;
+  background: #f0fdf4;
+  border-left: 4px solid var(--secondary-color, #0d9488);
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.medical-disclaimer p {
+  margin: 0;
+}
+
 
 

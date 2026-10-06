@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { MEDICAL_DISCLAIMER } from '../config/medical.js';
 
 /**
  * ModuleSection — Matches the reference HTML structure exactly.
@@ -22,15 +23,17 @@ export default function ModuleSection({ module }) {
                 {module.subtitle}
             </p>
 
-            {/* Video embed */}
-            <div className="video-container">
-                <iframe
-                    src={module.videoUrl}
-                    title={module.title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                />
-            </div>
+            {/* Video embed — only render when URL exists */}
+            {module.videoUrl ? (
+                <div className="video-container">
+                    <iframe
+                        src={module.videoUrl}
+                        title={module.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                    />
+                </div>
+            ) : null}
 
             {/* Step guide section */}
             <div style={{ marginTop: '3rem' }}>
@@ -100,6 +103,11 @@ export default function ModuleSection({ module }) {
                         </button>
                     )}
                 </div>
+            </div>
+
+            {/* Disclaimer medis */}
+            <div className="medical-disclaimer">
+                <p>⚕️ {MEDICAL_DISCLAIMER}</p>
             </div>
         </div>
     );
