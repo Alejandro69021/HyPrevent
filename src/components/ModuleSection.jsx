@@ -57,15 +57,15 @@ export default function ModuleSection({ module }) {
                     ))}
                 </div>
 
-                {/* Step content */}
-                <div className="step-content" key={activeStep}>
+                {/* Step content — aria-live announces step changes to screen readers */}
+                <div className="step-content" key={activeStep} aria-live="polite" aria-atomic="true">
                     <h3>{current.title}</h3>
                     <p style={{ fontSize: '1.125rem', marginBottom: '1.5rem', color: 'var(--text-light)' }}>
                         {current.description}
                     </p>
 
                     <img
-                        alt={current.title}
+                        alt={`${current.title} — ${current.description}`}
                         className="step-image"
                         src={current.image}
                         loading="lazy"

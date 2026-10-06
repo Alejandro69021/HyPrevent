@@ -20,8 +20,6 @@ export default defineConfig({
         rollupOptions: {
             input: {
                 main: resolve(__dirname, 'index.html'),
-                jadwal: resolve(__dirname, 'jadwal.html'),
-                scheduler: resolve(__dirname, 'smart-workout-scheduler.html'),
             },
         },
     },

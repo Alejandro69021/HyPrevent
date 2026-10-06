@@ -894,7 +894,8 @@ export default function AIMotionSection() {
                     <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
                 <span>
-                    Kamera hanya berjalan di browser Anda — tidak ada video yang dikirim ke server.
+                    Kamera dan analisis gerakan berjalan sepenuhnya di browser Anda — tidak ada video yang dikirim ke server.
+                    Model AI diunduh dari CDN pihak ketiga (jsDelivr/Google) saat pertama kali digunakan.
                     {isPlank && " Mode Plank: Buka 5 jari untuk mulai timer, kepalkan tangan untuk menghentikan dan mereset timer."}
                 </span>
             </div>

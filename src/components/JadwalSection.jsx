@@ -193,7 +193,7 @@ export default function JadwalSection() {
                 )}
 
                 {/* ─── Chat Area ─── */}
-                <div className="chat-messages" ref={chatMessagesRef}>
+                <div className="chat-messages" ref={chatMessagesRef} aria-live="polite" aria-label="Percakapan dengan asisten AI">
 
                     {/* Welcome */}
                     {messages.length === 0 && (
