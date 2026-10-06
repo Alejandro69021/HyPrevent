@@ -148,13 +148,14 @@ export default function Sidebar({ activePage, onNavigate }) {
                     <ul className="nav-menu">
                         {menuItems.map((item) => (
                             <li key={item.id} className="nav-item">
-                                <div
+                                <button
                                     className={`nav-link ${activePage === item.id ? 'active' : ''}`}
                                     onClick={() => handleNav(item.id)}
+                                    aria-current={activePage === item.id ? 'page' : undefined}
                                 >
                                     <span className="nav-icon">{item.icon}</span>
                                     <span>{item.label}</span>
-                                </div>
+                                </button>
                             </li>
                         ))}
                     </ul>
