@@ -588,14 +588,14 @@ export default function AIMotionSection() {
 
     // ─────────────────────────────────────────────────────────
     return (
-        <section className="ai-motion-section">
+        <div className="content-section animate-fade-in ai-motion-section">
             {/* Header */}
             <div className="ai-motion-header">
                 <div className="ai-motion-badge">
                     <img src="/HyPrevent.png" alt="HyPrevent" style={{ width: "18px", height: "18px", objectFit: "contain" }} />
                     <span>Powered by HyPrevent</span>
                 </div>
-                <h2 className="ai-motion-title">Praktik Gerakan HyPrevent</h2>
+                <h1 className="ai-motion-title">Praktik Gerakan HyPrevent</h1>
                 <p className="ai-motion-subtitle">
                     Deteksi gerakan olahraga secara real-time menggunakan teknologi HyPrevent.
                 </p>
@@ -899,6 +899,6 @@ export default function AIMotionSection() {
                     {isPlank && " Mode Plank: Buka 5 jari untuk mulai timer, kepalkan tangan untuk menghentikan dan mereset timer."}
                 </span>
             </div>
-        </section>
+        </div>
     );
 }
