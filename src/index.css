@@ -145,7 +145,7 @@ html {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.8rem 1.5rem;
+  padding: 0.8rem 1.25rem;
   font-size: 0.875rem;
   color: var(--text-light);
   cursor: pointer;
@@ -153,6 +153,7 @@ html {
   border-left: 3px solid transparent;
   text-decoration: none;
   user-select: none;
+  white-space: nowrap;
 }
 
 .nav-link:hover {

@@ -595,7 +595,7 @@ export default function AIMotionSection() {
                     <img src="/HyPrevent.png" alt="HyPrevent" style={{ width: "18px", height: "18px", objectFit: "contain" }} />
                     <span>Powered by HyPrevent</span>
                 </div>
-                <h1 className="ai-motion-title">Praktik Gerakan HyPrevent</h1>
+                <h1 className="ai-motion-title">Modul 4: Praktik Gerakan HyPrevent</h1>
                 <p className="ai-motion-subtitle">
                     Deteksi gerakan olahraga secara real-time menggunakan teknologi HyPrevent.
                 </p>

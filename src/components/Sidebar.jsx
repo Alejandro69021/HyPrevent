@@ -45,7 +45,7 @@ const menuItems = [
     },
     {
         id: 'ai-motion',
-        label: 'Praktik Gerakan HyPrevent',
+        label: 'Modul 4: Praktik Gerakan',
         icon: (
             <svg viewBox="0 0 24 24">
                 <circle cx="12" cy="8" r="3" />
