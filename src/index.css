@@ -77,6 +77,7 @@ html {
   display: flex;
   flex-direction: column;
   z-index: 40;
+  overflow-y: auto;
   transition: transform 0.3s ease;
 }
 
@@ -132,25 +133,56 @@ html {
 }
 
 /* Nav */
+.sidebar nav {
+  width: 100%;
+}
+
 .nav-menu {
   list-style: none;
-  padding: 0.75rem 0;
+  padding: 0.25rem 0;
+  margin: 0;
+  width: 100%;
 }
 
 .nav-item {
   margin: 0;
+  padding: 0;
+  width: 100%;
+  display: block;
+}
+
+/* Full-bleed background di <li> sebagai pengaman:
+   walau <button> menyusut selebar konten, hijau tetap full */
+.nav-item:has(.nav-link:hover) {
+  background: var(--hover-bg);
+}
+
+.nav-item:has(.nav-link.active) {
+  background: #ccfbf1;
 }
 
 .nav-link {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  width: 100%;
+  max-width: none;
+  align-self: stretch;
+  justify-content: flex-start;
+  text-align: left;
+  margin: 0;
   padding: 0.8rem 1.25rem;
   font-size: 0.875rem;
   color: var(--text-light);
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  box-sizing: border-box;
   cursor: pointer;
   transition: all 0.2s ease;
-  border-left: 3px solid transparent;
   text-decoration: none;
   user-select: none;
   white-space: nowrap;
