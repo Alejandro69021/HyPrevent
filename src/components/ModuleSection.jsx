@@ -16,12 +16,10 @@ export default function ModuleSection({ module }) {
     return (
         <div className="content-section animate-fade-in">
             {/* Module title */}
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-dark)', marginBottom: '0.375rem' }}>
-                {module.title}
-            </h1>
-            <p style={{ fontSize: '1.125rem', marginBottom: '2rem', color: 'var(--text-light)' }}>
-                {module.subtitle}
-            </p>
+            <div className="intro-section">
+                <h1>{module.title}</h1>
+                <p>{module.subtitle}</p>
+            </div>
 
             {/* Video embed — only render when URL exists */}
             {module.videoUrl ? (

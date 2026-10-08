@@ -10,12 +10,12 @@ const references = [
 export default function ReferensiSection() {
     return (
         <div className="content-section animate-fade-in">
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-dark)', marginBottom: '0.375rem' }}>
-                Referensi Ilmiah
-            </h1>
-            <p style={{ fontSize: '1.125rem', marginBottom: '2.5rem', color: 'var(--text-light)' }}>
-                Kumpulan artikel dan jurnal penelitian yang menjadi dasar ilmiah seluruh konten pencegahan hipertensi di platform HyPrevent.
-            </p>
+            <div className="intro-section">
+                <h1>Referensi Ilmiah</h1>
+                <p>
+                    Kumpulan artikel dan jurnal penelitian yang menjadi dasar ilmiah seluruh konten pencegahan hipertensi di platform HyPrevent.
+                </p>
+            </div>
 
             {references.length === 0 ? (
                 <div style={{
