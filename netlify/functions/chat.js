@@ -48,7 +48,7 @@ const TOOLS = [
     },
 ];
 
-const MODEL = 'gemini-3.8-flash';
+const MODEL = 'gemini-3.7-flash';
 
 function formatWaktu(waktuStr) {
     try {
