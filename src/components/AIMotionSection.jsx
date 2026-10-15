@@ -25,19 +25,26 @@ const GESTURE_HOLD = 25; // consecutive frames to confirm gesture (~0.8s)
 
 /** Detect 'open_hand' (5 jari terbuka) or 'fist' (kepalan) */
 function detectGesture(lm) {
-    // y: 0=top, 1=bottom.
-    const idxOpen = lm[8].y  < lm[7].y;
-    const midOpen = lm[12].y < lm[11].y;
-    const rngOpen = lm[16].y < lm[15].y;
-    const pnkOpen = lm[20].y < lm[19].y;
-    // open_hand: at least 4 fingers clearly extended
+    // MediaPipe Hand landmarks — y: 0=top, 1=bottom.
+    // Compare tip to PIP (proximal knuckle) — stronger signal than tip-vs-DIP.
+    // Landmark index: Index tip=8 PIP=6 | Middle tip=12 PIP=10 | Ring tip=16 PIP=14 | Pinky tip=20 PIP=18
+
+    // Guard: require all key landmarks have reasonable visibility
+    const keyPts = [6, 8, 10, 12, 14, 16, 18, 20];
+    if (keyPts.some((i) => (lm[i]?.visibility ?? 1) < 0.3)) return null;
+
+    const idxOpen = lm[8].y  < lm[6].y;
+    const midOpen = lm[12].y < lm[10].y;
+    const rngOpen = lm[16].y < lm[14].y;
+    const pnkOpen = lm[20].y < lm[18].y;
+    // open_hand: all 4 fingers clearly extended
     if (idxOpen && midOpen && rngOpen && pnkOpen) return "open_hand";
 
-    const idxCurl = lm[8].y  > lm[7].y;
-    const midCurl = lm[12].y > lm[11].y;
-    const rngCurl = lm[16].y > lm[15].y;
-    const pnkCurl = lm[20].y > lm[19].y;
-    // fist: all 4 fingers curled (kepalan)
+    const idxCurl = lm[8].y  > lm[6].y;
+    const midCurl = lm[12].y > lm[10].y;
+    const rngCurl = lm[16].y > lm[14].y;
+    const pnkCurl = lm[20].y > lm[18].y;
+    // fist: all 4 fingers clearly curled
     if (idxCurl && midCurl && rngCurl && pnkCurl) return "fist";
     return null;
 }
@@ -253,8 +260,6 @@ export default function AIMotionSection() {
 
                                 if (actHip && actKnee && actAnkle) {
                                     const angle = calculateAngle(actHip, actKnee, actAnkle);
-                                    console.log(`[AI Debug] Squat Knee Angle: ${angle.toFixed(1)}°, Stage: ${stageRef.current}`);
-                                    
                                     if (angle < 90) {
                                         if (stageRef.current === "up") {
                                             stageRef.current = "down";
@@ -282,8 +287,6 @@ export default function AIMotionSection() {
 
                                 if (actShoulder && actElbow && actWrist) {
                                     const angle = calculateAngle(actShoulder, actElbow, actWrist);
-                                    console.log(`[AI Debug] Push-Up Elbow Angle: ${angle.toFixed(1)}°, Stage: ${stageRef.current}`);
-
                                     if (angle < 90) {
                                         if (stageRef.current === "up") {
                                             stageRef.current = "down";
@@ -305,8 +308,6 @@ export default function AIMotionSection() {
                                 let rAngle = rHip && rKnee && rAnkle ? calculateAngle(rHip, rKnee, rAnkle) : 180;
                                 
                                 const minAngle = Math.min(lAngle, rAngle);
-                                console.log(`[AI Debug] Lunge Knee Angle: ${minAngle.toFixed(1)}°, Stage: ${stageRef.current}`);
-
                                 if (minAngle < 90) {
                                     if (stageRef.current === "up") {
                                         stageRef.current = "down";
@@ -326,8 +327,6 @@ export default function AIMotionSection() {
                                 if (lHip && lShoulder && lElbow && rHip && rShoulder && rElbow) {
                                     const lAngle = calculateAngle(lHip, lShoulder, lElbow);
                                     const rAngle = calculateAngle(rHip, rShoulder, rElbow);
-                                    console.log(`[AI Debug] Jumping Jack Shoulder Angles - L: ${lAngle.toFixed(1)}°, R: ${rAngle.toFixed(1)}°, Stage: ${stageRef.current}`);
-
                                     if (lAngle > 150 && rAngle > 150) {
                                         if (stageRef.current === "down") {
                                             stageRef.current = "up";
@@ -350,8 +349,6 @@ export default function AIMotionSection() {
 
                                 if (actShoulder && actHip && actKnee) {
                                     const angle = calculateAngle(actShoulder, actHip, actKnee);
-                                    console.log(`[AI Debug] Sit-Up Hip Angle: ${angle.toFixed(1)}°, Stage: ${stageRef.current}`);
-
                                     if (angle < 80) {
                                         if (stageRef.current === "down") {
                                             stageRef.current = "up";
@@ -381,8 +378,6 @@ export default function AIMotionSection() {
                                     const kneeAngle = calculateAngle(hip, knee, ankle);
                                     const elbowAngle = calculateAngle(shoulder, elbow, wrist);
                                     const handsRaised = wrist.y < shoulder.y;
-                                    console.log(`[AI Debug] Burpee Knee Angle: ${kneeAngle.toFixed(1)}°, Elbow: ${elbowAngle.toFixed(1)}°, Stage: ${stageRef.current}`);
-
                                     if (kneeAngle < 90) {
                                         if (stageRef.current === "up") {
                                             stageRef.current = "down";
@@ -419,10 +414,9 @@ export default function AIMotionSection() {
                                 plankStartRef.current = Date.now();
                                 setPlankPhase("running");
                             } else if (gesture === "fist" && plankPhaseRef.current === "running") {
-                                plankPhaseRef.current = "idle";
+                                plankPhaseRef.current = "stopped";
                                 plankStartRef.current = null;
-                                setPlankDuration(0);
-                                setPlankPhase("idle");
+                                setPlankPhase("stopped");
                             }
                         }
                     } else {

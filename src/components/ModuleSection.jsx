@@ -96,7 +96,7 @@ export default function ModuleSection({ module }) {
                             Langkah Selanjutnya →
                         </button>
                     ) : (
-                        <button style={{ color: 'var(--success-color)', fontWeight: 600 }}>
+                        <button disabled style={{ color: 'var(--success-color)', fontWeight: 600, opacity: 0.85, cursor: 'default' }}>
                             ✓ Selesai
                         </button>
                     )}

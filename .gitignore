@@ -7,6 +7,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# OAuth token persistence (server-side, contains sensitive tokens)
+.token-store.json
+
 node_modules
 dist
 .env

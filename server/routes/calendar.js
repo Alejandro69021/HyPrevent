@@ -14,6 +14,14 @@ import { getAuthUrl, handleCallback, isConnected, createEvent } from '../service
 
 const router = Router();
 
+// Escape HTML special chars to prevent XSS in inline HTML responses
+const escHtml = (str) => String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+
 /**
  * GET /api/calendar/auth
  * Redirect user ke Google OAuth consent page.
@@ -95,7 +103,7 @@ router.get('/callback', async (req, res) => {
                 <script>
                     // Notify opener window and close
                     if (window.opener) {
-                        window.opener.postMessage({ type: 'CALENDAR_CONNECTED', sessionId: '${sessionId}' }, '*');
+                        window.opener.postMessage({ type: 'CALENDAR_CONNECTED', sessionId: '${escHtml(sessionId)}' }, '*');
                     }
                     setTimeout(() => window.close(), 3000);
                 </script>
@@ -108,7 +116,7 @@ router.get('/callback', async (req, res) => {
             <!DOCTYPE html>
             <html><body style="font-family: sans-serif; text-align: center; padding: 2rem;">
                 <h2>❌ Gagal menghubungkan Google Calendar</h2>
-                <p>${err.message}</p>
+                <p>${escHtml(err.message)}</p>
                 <p>Silakan coba lagi.</p>
             </body></html>
         `);

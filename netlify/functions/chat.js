@@ -48,7 +48,7 @@ const TOOLS = [
     },
 ];
 
-const MODEL = 'gemini-3-flash-preview';
+const MODEL = 'gemini-2.5-flash';
 
 function formatWaktu(waktuStr) {
     try {
@@ -64,9 +64,13 @@ function formatWaktu(waktuStr) {
 }
 
 export const handler = async (event) => {
-    const ALLOWED_ORIGIN = 'https://hyprevent.netlify.app';
+    const ALLOWED_ORIGINS = [
+        'https://hyprevent.netlify.app',
+        'http://localhost:5173',
+        'http://localhost:3000',
+    ];
     const requestOrigin = event.headers?.origin || '';
-    const origin = requestOrigin === ALLOWED_ORIGIN ? ALLOWED_ORIGIN : ALLOWED_ORIGIN;
+    const origin = ALLOWED_ORIGINS.includes(requestOrigin) ? requestOrigin : ALLOWED_ORIGINS[0];
 
     const headers = {
         'Access-Control-Allow-Origin': origin,

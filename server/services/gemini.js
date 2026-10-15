@@ -66,7 +66,7 @@ const TOOLS = [
 
 // ─── Config ───
 
-const MODEL = 'gemini-3-flash-preview';
+const MODEL = 'gemini-2.5-flash';
 
 /**
  * sendMessage — Kirim pesan ke Gemini, handle function calling loop.
