@@ -59,6 +59,71 @@ function calculateAngle(p1, p2, p3) {
     return angle;
 }
 
+function ptDist(p1, p2) {
+    if (!p1 || !p2) return 0;
+    return Math.hypot(p2.x - p1.x, p2.y - p1.y);
+}
+
+/**
+ * Validates that detected pose landmarks represent a genuine human body
+ * rather than a hand or background object hallucination.
+ *
+ * Checks:
+ * 1. Both shoulders or at least one shoulder + hip are present with high confidence.
+ * 2. Minimum shoulder width (distance between shoulders).
+ * 3. Minimum torso length (shoulder midpoint to hip midpoint).
+ *    A hand waving near the camera produces a tiny "torso" (< 0.11 of frame).
+ */
+function validateBodyPose(landmarks) {
+    if (!landmarks || landmarks.length < 33) return null;
+
+    const get = (idx, minVis = 0.55) => {
+        const pt = landmarks[idx];
+        if (!pt) return null;
+        const vis = pt.visibility !== undefined ? pt.visibility : 1;
+        return vis >= minVis ? pt : null;
+    };
+
+    const lShoulder = get(11, 0.6);
+    const rShoulder = get(12, 0.6);
+    const lHip = get(23, 0.55);
+    const rHip = get(24, 0.55);
+
+    // Torso presence: must have at least one shoulder AND at least one hip
+    if (!lShoulder && !rShoulder) return null;
+    if (!lHip && !rHip) return null;
+
+    // Torso midpoint calculations
+    const sX = lShoulder && rShoulder ? (lShoulder.x + rShoulder.x) / 2 : (lShoulder || rShoulder).x;
+    const sY = lShoulder && rShoulder ? (lShoulder.y + rShoulder.y) / 2 : (lShoulder || rShoulder).y;
+    const hX = lHip && rHip ? (lHip.x + rHip.x) / 2 : (lHip || rHip).x;
+    const hY = lHip && rHip ? (lHip.y + rHip.y) / 2 : (lHip || rHip).y;
+
+    // Shoulder width check if both shoulders are visible
+    if (lShoulder && rShoulder) {
+        const shoulderWidth = ptDist(lShoulder, rShoulder);
+        // Hands waving near camera have shoulders clustered tightly (< 0.075)
+        if (shoulderWidth < 0.075) return null;
+    }
+
+    // Torso length check (distance from shoulder midpoint to hip midpoint)
+    const torsoLength = Math.hypot(hX - sX, hY - sY);
+    // Real person at workout distance has torso >= 0.12 in normalized coordinates (0..1)
+    // A hand or finger hallucination has torsoLength < 0.09
+    if (torsoLength < 0.12) return null;
+
+    return {
+        lShoulder,
+        rShoulder,
+        lHip,
+        rHip,
+        sMid: { x: sX, y: sY },
+        hMid: { x: hX, y: hY },
+        torsoLength,
+        getPt: get,
+    };
+}
+
 const OpenHandIcon = () => (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
         <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v5" />
@@ -111,10 +176,13 @@ export default function AIMotionSection() {
     const plankPhaseRef     = useRef("idle");
     const plankStartRef     = useRef(null);
     const gestureRef        = useRef({ last: null, count: 0 });
-    const repCountRef       = useRef(0);
-    const stageRef          = useRef("up"); // up | down
+    const repCountRef          = useRef(0);
+    const stageRef             = useRef("up"); // up | down
     const countdownFinishedRef = useRef(false);
     const countdownIntervalRef = useRef(null);
+    const lastRepTimeRef       = useRef(0);
+    const downStartTimeRef     = useRef(0);
+    const missingPoseCountRef  = useRef(0);
 
     // Keep ref in sync; reset plank when exercise changes
     useEffect(() => {
@@ -156,10 +224,13 @@ export default function AIMotionSection() {
             })();
         }
 
-        // Reset reps
+        // Reset reps & debounce timing
         setRepCount(0);
         repCountRef.current = 0;
         stageRef.current = "up";
+        lastRepTimeRef.current = 0;
+        downStartTimeRef.current = 0;
+        missingPoseCountRef.current = 0;
         setPostureStatus("Siap");
 
         // Cancel countdown if running
@@ -219,6 +290,9 @@ export default function AIMotionSection() {
     // Build the rAF detect loop — shared by start & restart
     const buildDetectLoop = useCallback((video, ctx, PoseLandmarker, DrawingUtils) => {
         const du = new DrawingUtils(ctx);
+        const MIN_DOWN_HOLD_MS = 200;
+        const MIN_REP_INTERVAL_MS = 800;
+
         const detect = () => {
             if (video.readyState >= 2 && video.currentTime !== lastTimeRef.current) {
                 lastTimeRef.current = video.currentTime;
@@ -228,10 +302,15 @@ export default function AIMotionSection() {
                 if (landmarkerRef.current) {
                     const pr = landmarkerRef.current.detectForVideo(video, now);
                     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-                    setPoseDetected(pr.landmarks.length > 0);
-                    
-                    const landmarks = pr.landmarks[0];
-                    if (landmarks) {
+
+                    const rawLandmarks = pr.landmarks?.[0];
+                    const body = validateBodyPose(rawLandmarks);
+
+                    if (body) {
+                        missingPoseCountRef.current = 0;
+                        setPoseDetected(true);
+
+                        // Draw full skeleton brightly only when real human body is confirmed
                         for (const lm of pr.landmarks) {
                             du.drawConnectors(lm, PoseLandmarker.POSE_CONNECTIONS, { color: "#5eead4", lineWidth: 2.5 });
                             du.drawLandmarks(lm, { color: "#0d9488", fillColor: "#ffffff", lineWidth: 1.5, radius: 5 });
@@ -240,158 +319,186 @@ export default function AIMotionSection() {
                         // Repetition counting (only works after countdown is complete)
                         const exercise = selectedExRef.current;
                         if (exercise && exercise !== "plank" && countdownFinishedRef.current) {
-                            const getPt = (idx) => {
-                                const pt = landmarks[idx];
-                                return pt && pt.visibility > 0.5 ? pt : null;
+                            const handleRepState = (isDown, isUp, downLabel = "Turun", upLabel = "Naik") => {
+                                const curNow = performance.now();
+                                if (isDown) {
+                                    if (stageRef.current === "up") {
+                                        stageRef.current = "down";
+                                        downStartTimeRef.current = curNow;
+                                        setPostureStatus(downLabel);
+                                    }
+                                } else if (isUp) {
+                                    if (stageRef.current === "down") {
+                                        const downDuration = curNow - (downStartTimeRef.current || 0);
+                                        const timeSinceLastRep = curNow - (lastRepTimeRef.current || 0);
+
+                                        if (downDuration >= MIN_DOWN_HOLD_MS && timeSinceLastRep >= MIN_REP_INTERVAL_MS) {
+                                            stageRef.current = "up";
+                                            lastRepTimeRef.current = curNow;
+                                            repCountRef.current += 1;
+                                            setRepCount(repCountRef.current);
+                                            setPostureStatus(upLabel);
+                                        }
+                                    }
+                                }
                             };
 
                             if (exercise === "squat") {
-                                const hip = getPt(23);
-                                const knee = getPt(25);
-                                const ankle = getPt(27);
-                                const rHip = getPt(24);
-                                const rKnee = getPt(26);
-                                const rAnkle = getPt(28);
+                                const lH = body.getPt(23, 0.6);
+                                const lK = body.getPt(25, 0.6);
+                                const lA = body.getPt(27, 0.55);
+                                const leftLegValid = lH && lK && lA && ptDist(lH, lK) > 0.06 && ptDist(lK, lA) > 0.06;
 
-                                // Use left side or right side depending on visibility
-                                const actHip = hip || rHip;
-                                const actKnee = knee || rKnee;
-                                const actAnkle = ankle || rAnkle;
+                                const rH = body.getPt(24, 0.6);
+                                const rK = body.getPt(26, 0.6);
+                                const rA = body.getPt(28, 0.55);
+                                const rightLegValid = rH && rK && rA && ptDist(rH, rK) > 0.06 && ptDist(rK, rA) > 0.06;
 
-                                if (actHip && actKnee && actAnkle) {
-                                    const angle = calculateAngle(actHip, actKnee, actAnkle);
-                                    if (angle < 90) {
-                                        if (stageRef.current === "up") {
-                                            stageRef.current = "down";
-                                            setPostureStatus("Turun");
-                                        }
+                                if (!leftLegValid && !rightLegValid) {
+                                    setPostureStatus("Arahkan kaki ke kamera");
+                                } else {
+                                    let kneeAngle = 180;
+                                    if (leftLegValid && rightLegValid) {
+                                        kneeAngle = (calculateAngle(lH, lK, lA) + calculateAngle(rH, rK, rA)) / 2;
+                                    } else if (leftLegValid) {
+                                        kneeAngle = calculateAngle(lH, lK, lA);
+                                    } else {
+                                        kneeAngle = calculateAngle(rH, rK, rA);
                                     }
-                                    if (angle > 160 && stageRef.current === "down") {
-                                        stageRef.current = "up";
-                                        repCountRef.current += 1;
-                                        setRepCount(repCountRef.current);
-                                        setPostureStatus("Naik");
-                                    }
+
+                                    const isDown = kneeAngle < 100;
+                                    const isUp = kneeAngle > 160;
+                                    handleRepState(isDown, isUp, "Turun", "Naik");
                                 }
                             } else if (exercise === "push-up") {
-                                const shoulder = getPt(11);
-                                const elbow = getPt(13);
-                                const wrist = getPt(15);
-                                const rShoulder = getPt(12);
-                                const rElbow = getPt(14);
-                                const rWrist = getPt(16);
+                                const lS = body.getPt(11, 0.65);
+                                const lE = body.getPt(13, 0.6);
+                                const lW = body.getPt(15, 0.55);
+                                const leftArmValid = lS && lE && lW && ptDist(lS, lE) > 0.05 && ptDist(lE, lW) > 0.05;
 
-                                const actShoulder = shoulder || rShoulder;
-                                const actElbow = elbow || rElbow;
-                                const actWrist = wrist || rWrist;
+                                const rS = body.getPt(12, 0.65);
+                                const rE = body.getPt(14, 0.6);
+                                const rW = body.getPt(16, 0.55);
+                                const rightArmValid = rS && rE && rW && ptDist(rS, rE) > 0.05 && ptDist(rE, rW) > 0.05;
 
-                                if (actShoulder && actElbow && actWrist) {
-                                    const angle = calculateAngle(actShoulder, actElbow, actWrist);
-                                    if (angle < 90) {
-                                        if (stageRef.current === "up") {
-                                            stageRef.current = "down";
-                                            setPostureStatus("Turun");
-                                        }
+                                if (!leftArmValid && !rightArmValid) {
+                                    setPostureStatus("Arahkan lengan ke kamera");
+                                } else {
+                                    let armAngle = 180;
+                                    if (leftArmValid && rightArmValid) {
+                                        armAngle = (calculateAngle(lS, lE, lW) + calculateAngle(rS, rE, rW)) / 2;
+                                    } else if (leftArmValid) {
+                                        armAngle = calculateAngle(lS, lE, lW);
+                                    } else {
+                                        armAngle = calculateAngle(rS, rE, rW);
                                     }
-                                    if (angle > 160 && stageRef.current === "down") {
-                                        stageRef.current = "up";
-                                        repCountRef.current += 1;
-                                        setRepCount(repCountRef.current);
-                                        setPostureStatus("Naik");
-                                    }
+
+                                    const isDown = armAngle < 95;
+                                    const isUp = armAngle > 150;
+                                    handleRepState(isDown, isUp, "Turun", "Naik");
                                 }
                             } else if (exercise === "lunge") {
-                                const lHip = getPt(23); const lKnee = getPt(25); const lAnkle = getPt(27);
-                                const rHip = getPt(24); const rKnee = getPt(26); const rAnkle = getPt(28);
+                                const lH = body.getPt(23, 0.6);
+                                const lK = body.getPt(25, 0.6);
+                                const lA = body.getPt(27, 0.55);
+                                const leftLegValid = lH && lK && lA && ptDist(lH, lK) > 0.06 && ptDist(lK, lA) > 0.06;
 
-                                let lAngle = lHip && lKnee && lAnkle ? calculateAngle(lHip, lKnee, lAnkle) : 180;
-                                let rAngle = rHip && rKnee && rAnkle ? calculateAngle(rHip, rKnee, rAnkle) : 180;
-                                
-                                const minAngle = Math.min(lAngle, rAngle);
-                                if (minAngle < 90) {
-                                    if (stageRef.current === "up") {
-                                        stageRef.current = "down";
-                                        setPostureStatus("Turun");
-                                    }
-                                }
-                                if (minAngle > 160 && stageRef.current === "down") {
-                                    stageRef.current = "up";
-                                    repCountRef.current += 1;
-                                    setRepCount(repCountRef.current);
-                                    setPostureStatus("Naik");
+                                const rH = body.getPt(24, 0.6);
+                                const rK = body.getPt(26, 0.6);
+                                const rA = body.getPt(28, 0.55);
+                                const rightLegValid = rH && rK && rA && ptDist(rH, rK) > 0.06 && ptDist(rK, rA) > 0.06;
+
+                                if (!leftLegValid && !rightLegValid) {
+                                    setPostureStatus("Arahkan kaki ke kamera");
+                                } else {
+                                    let minKneeAngle = 180;
+                                    if (leftLegValid) minKneeAngle = Math.min(minKneeAngle, calculateAngle(lH, lK, lA));
+                                    if (rightLegValid) minKneeAngle = Math.min(minKneeAngle, calculateAngle(rH, rK, rA));
+
+                                    const isDown = minKneeAngle < 100;
+                                    const isUp = minKneeAngle > 155;
+                                    handleRepState(isDown, isUp, "Turun", "Naik");
                                 }
                             } else if (exercise === "jumping-jack") {
-                                const lHip = getPt(23); const lShoulder = getPt(11); const lElbow = getPt(13);
-                                const rHip = getPt(24); const rShoulder = getPt(12); const rElbow = getPt(14);
+                                const lH = body.getPt(23, 0.55);
+                                const lS = body.getPt(11, 0.65);
+                                const lE = body.getPt(13, 0.6);
+                                const lW = body.getPt(15, 0.55);
 
-                                if (lHip && lShoulder && lElbow && rHip && rShoulder && rElbow) {
-                                    const lAngle = calculateAngle(lHip, lShoulder, lElbow);
-                                    const rAngle = calculateAngle(rHip, rShoulder, rElbow);
-                                    if (lAngle > 150 && rAngle > 150) {
-                                        if (stageRef.current === "down") {
-                                            stageRef.current = "up";
-                                            repCountRef.current += 1;
-                                            setRepCount(repCountRef.current);
-                                            setPostureStatus("Buka");
-                                        }
-                                    } else if (lAngle < 30 && rAngle < 30) {
-                                        stageRef.current = "down";
-                                        setPostureStatus("Tutup");
-                                    }
+                                const rH = body.getPt(24, 0.55);
+                                const rS = body.getPt(12, 0.65);
+                                const rE = body.getPt(14, 0.6);
+                                const rW = body.getPt(16, 0.55);
+
+                                const lA = body.getPt(27, 0.5);
+                                const rA = body.getPt(28, 0.5);
+
+                                if (!lH || !lS || !lE || !rH || !rS || !rE || (!lA && !rA)) {
+                                    setPostureStatus("Arahkan seluruh tubuh ke kamera");
+                                } else {
+                                    const lArmAngle = calculateAngle(lH, lS, lE);
+                                    const rArmAngle = calculateAngle(rH, rS, rE);
+                                    const handsAboveShoulders = (lW && lW.y < lS.y) && (rW && rW.y < rS.y);
+
+                                    const isUp = (lArmAngle > 135 && rArmAngle > 135) || handsAboveShoulders;
+                                    const isDown = lArmAngle < 45 && rArmAngle < 45;
+                                    handleRepState(isDown, isUp, "Tutup", "Buka");
                                 }
                             } else if (exercise === "sit-up") {
-                                const shoulder = getPt(11); const hip = getPt(23); const knee = getPt(25);
-                                const rShoulder = getPt(12); const rHip = getPt(24); const rKnee = getPt(26);
+                                const lS = body.getPt(11, 0.6);
+                                const lH = body.getPt(23, 0.6);
+                                const lK = body.getPt(25, 0.6);
+                                const leftSideValid = lS && lH && lK && ptDist(lS, lH) > 0.08 && ptDist(lH, lK) > 0.06;
 
-                                const actShoulder = shoulder || rShoulder;
-                                const actHip = hip || rHip;
-                                const actKnee = knee || rKnee;
+                                const rS = body.getPt(12, 0.6);
+                                const rH = body.getPt(24, 0.6);
+                                const rK = body.getPt(26, 0.6);
+                                const rightSideValid = rS && rH && rK && ptDist(rS, rH) > 0.08 && ptDist(rH, rK) > 0.06;
 
-                                if (actShoulder && actHip && actKnee) {
-                                    const angle = calculateAngle(actShoulder, actHip, actKnee);
-                                    if (angle < 80) {
-                                        if (stageRef.current === "down") {
-                                            stageRef.current = "up";
-                                            repCountRef.current += 1;
-                                            setRepCount(repCountRef.current);
-                                            setPostureStatus("Naik");
-                                        }
-                                    } else if (angle > 160) {
-                                        stageRef.current = "down";
-                                        setPostureStatus("Turun");
-                                    }
+                                if (!leftSideValid && !rightSideValid) {
+                                    setPostureStatus("Posisikan tubuh di lantai");
+                                } else {
+                                    const torsoAngle = leftSideValid ? calculateAngle(lS, lH, lK) : calculateAngle(rS, rH, rK);
+                                    const isDown = torsoAngle > 135;
+                                    const isUp = torsoAngle < 80;
+                                    handleRepState(isDown, isUp, "Turun", "Naik");
                                 }
                             } else if (exercise === "burpee") {
-                                const lKnee = getPt(25); const lAnkle = getPt(27); const lHip = getPt(23);
-                                const lShoulder = getPt(11); const lElbow = getPt(13); const lWrist = getPt(15);
-                                const rKnee = getPt(26); const rAnkle = getPt(28); const rHip = getPt(24);
-                                const rShoulder = getPt(12); const rElbow = getPt(14); const rWrist = getPt(16);
+                                const lH = body.getPt(23, 0.55); const rH = body.getPt(24, 0.55);
+                                const lK = body.getPt(25, 0.55); const rK = body.getPt(26, 0.55);
+                                const lA = body.getPt(27, 0.5); const rA = body.getPt(28, 0.5);
+                                const lS = body.getPt(11, 0.6); const rS = body.getPt(12, 0.6);
+                                const lW = body.getPt(15, 0.55); const rW = body.getPt(16, 0.55);
 
-                                const knee = lKnee || rKnee;
-                                const ankle = lAnkle || rAnkle;
-                                const hip = lHip || rHip;
-                                const shoulder = lShoulder || rShoulder;
-                                const elbow = lElbow || rElbow;
-                                const wrist = lWrist || rWrist;
+                                const hip = lH || rH;
+                                const knee = lK || rK;
+                                const ankle = lA || rA;
+                                const shoulder = lS || rS;
+                                const wrist = lW || rW;
 
-                                if (knee && ankle && hip && shoulder && elbow && wrist) {
+                                if (!hip || !knee || !ankle || !shoulder || !wrist) {
+                                    setPostureStatus("Arahkan seluruh tubuh ke kamera");
+                                } else {
                                     const kneeAngle = calculateAngle(hip, knee, ankle);
-                                    const elbowAngle = calculateAngle(shoulder, elbow, wrist);
-                                    const handsRaised = wrist.y < shoulder.y;
-                                    if (kneeAngle < 90) {
-                                        if (stageRef.current === "up") {
-                                            stageRef.current = "down";
-                                            setPostureStatus("Turun");
-                                        }
-                                    }
-                                    if (handsRaised && kneeAngle > 160 && stageRef.current === "down") {
-                                        stageRef.current = "up";
-                                        repCountRef.current += 1;
-                                        setRepCount(repCountRef.current);
-                                        setPostureStatus("Lompat");
-                                    }
+                                    const handsAboveHead = wrist.y < shoulder.y - 0.05;
+
+                                    const isDown = kneeAngle < 100;
+                                    const isUp = handsAboveHead && kneeAngle > 155;
+                                    handleRepState(isDown, isUp, "Turun", "Lompat");
                                 }
                             }
+                        }
+                    } else {
+                        // Pose invalid / hand waving / partial object
+                        setPoseDetected(false);
+                        missingPoseCountRef.current = (missingPoseCountRef.current || 0) + 1;
+                        if (missingPoseCountRef.current > 45) {
+                            countdownFinishedRef.current = false;
+                        }
+                        if (rawLandmarks) {
+                            setPostureStatus("Mundur agar tubuh terlihat");
+                        } else {
+                            setPostureStatus("Siap");
                         }
                     }
                 }
