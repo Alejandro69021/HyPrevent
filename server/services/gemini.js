@@ -66,7 +66,20 @@ const TOOLS = [
 
 // ─── Config ───
 
-const MODEL = 'gemini-3.7-flash';
+const PRIMARY_MODEL = 'gemini-3.5-flash';
+const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+
+async function callGeminiWithFallback(params) {
+    try {
+        return await ai.models.generateContent({ ...params, model: PRIMARY_MODEL });
+    } catch (err) {
+        if (err.status === 503 || err.message?.includes('503') || err.message?.includes('high demand') || err.message?.includes('UNAVAILABLE')) {
+            console.warn('[Gemini] Primary model 503 high demand, falling back to:', FALLBACK_MODEL);
+            return await ai.models.generateContent({ ...params, model: FALLBACK_MODEL });
+        }
+        throw err;
+    }
+}
 
 /**
  * sendMessage — Kirim pesan ke Gemini, handle function calling loop.
@@ -86,8 +99,7 @@ export async function sendMessage(userMessage, chatHistory = []) {
     ];
 
     // First call to Gemini
-    const response = await ai.models.generateContent({
-        model: MODEL,
+    const response = await callGeminiWithFallback({
         contents,
         config: {
             tools: TOOLS,
@@ -142,23 +154,31 @@ export async function sendMessage(userMessage, chatHistory = []) {
                 },
             ];
 
-            const followUp = await ai.models.generateContent({
-                model: MODEL,
-                contents: functionResultContents,
-                config: {
-                    tools: TOOLS,
-                    systemInstruction: SYSTEM_INSTRUCTION,
-                },
-            });
+            let followUpText = `Jadwal "${args.nama_aktivitas}" pada ${args.waktu_pelaksanaan} berhasil dicatat! Semangat latihannya ya, Kak! 💪`;
+            let finalHistory = functionResultContents;
 
-            const followUpText =
-                followUp.candidates?.[0]?.content?.parts
+            try {
+                const followUp = await callGeminiWithFallback({
+                    contents: functionResultContents,
+                    config: {
+                        tools: TOOLS,
+                        systemInstruction: SYSTEM_INSTRUCTION,
+                    },
+                });
+
+                const candidateText = followUp.candidates?.[0]?.content?.parts
                     ?.filter((p) => p.text)
                     .map((p) => p.text)
-                    .join('') || 'Jadwal berhasil dibuat! 💪';
+                    .join('');
 
-            // Build final history
-            const finalHistory = [
+                if (candidateText) {
+                    followUpText = candidateText;
+                }
+            } catch (followUpErr) {
+                console.warn('[Gemini] Follow-up text generation error, using fallback:', followUpErr.message);
+            }
+
+            finalHistory = [
                 ...functionResultContents,
                 {
                     role: 'model',

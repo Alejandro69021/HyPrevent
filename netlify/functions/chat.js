@@ -48,7 +48,20 @@ const TOOLS = [
     },
 ];
 
-const MODEL = 'gemini-3.7-flash';
+const PRIMARY_MODEL = 'gemini-3.5-flash';
+const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+
+async function callGeminiWithFallback(ai, params) {
+    try {
+        return await ai.models.generateContent({ ...params, model: PRIMARY_MODEL });
+    } catch (err) {
+        if (err.status === 503 || err.message?.includes('503') || err.message?.includes('high demand') || err.message?.includes('UNAVAILABLE')) {
+            console.warn('[Gemini Netlify] Primary model 503 high demand, falling back to:', FALLBACK_MODEL);
+            return await ai.models.generateContent({ ...params, model: FALLBACK_MODEL });
+        }
+        throw err;
+    }
+}
 
 function formatWaktu(waktuStr) {
     try {
@@ -117,9 +130,8 @@ export const handler = async (event) => {
             },
         ];
 
-        // Single Gemini call — no second call to avoid Netlify 10s timeout
-        const response = await ai.models.generateContent({
-            model: MODEL,
+        // Single Gemini call with fallback
+        const response = await callGeminiWithFallback(ai, {
             contents,
             config: {
                 tools: TOOLS,
