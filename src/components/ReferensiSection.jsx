@@ -18,7 +18,7 @@ export default function ReferensiSection() {
             </div>
 
             {references.length === 0 ? (
-                <div style={{
+                <div className="reference-empty-state" style={{
                     textAlign: 'center',
                     padding: '3rem 2rem',
                     background: 'var(--bg-white)',
@@ -32,8 +32,8 @@ export default function ReferensiSection() {
                 </div>
             ) : (
                 references.map((group, gIdx) => (
-                    <div key={gIdx} style={{ marginBottom: '2.5rem' }}>
-                        <div style={{
+                    <div key={gIdx} className="reference-group" style={{ marginBottom: '2.5rem' }}>
+                        <div className="reference-group-header" style={{
                             display: 'flex',
                             alignItems: 'center',
                             gap: '0.5rem',
@@ -46,10 +46,11 @@ export default function ReferensiSection() {
                             </h2>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div className="reference-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             {group.items.map((ref, rIdx) => (
                                 <div
                                     key={rIdx}
+                                    className="reference-card"
                                     style={{
                                         background: 'var(--bg-white)',
                                         border: '1px solid var(--border-color)',
@@ -58,19 +59,20 @@ export default function ReferensiSection() {
                                         transition: 'box-shadow 0.2s ease',
                                     }}
                                 >
-                                    <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-dark)', marginBottom: '0.375rem', lineHeight: 1.5 }}>
+                                    <h3 className="reference-card-title" style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-dark)', marginBottom: '0.375rem', lineHeight: 1.5 }}>
                                         {ref.title}
                                     </h3>
-                                    <p style={{ fontSize: '0.8125rem', color: 'var(--text-light)', marginBottom: '0.5rem' }}>
+                                    <p className="reference-card-meta" style={{ fontSize: '0.8125rem', color: 'var(--text-light)', marginBottom: '0.5rem' }}>
                                         {ref.authors} — <em>{ref.journal}</em> ({ref.year})
                                     </p>
-                                    <p style={{ fontSize: '0.875rem', color: 'var(--text-light)', lineHeight: 1.7, marginBottom: '0.75rem' }}>
+                                    <p className="reference-card-summary" style={{ fontSize: '0.875rem', color: 'var(--text-light)', lineHeight: 1.7, marginBottom: '0.75rem' }}>
                                         {ref.summary}
                                     </p>
                                     <a
                                         href={ref.doi}
                                         target="_blank"
                                         rel="noopener noreferrer"
+                                        className="reference-card-link"
                                         style={{
                                             fontSize: '0.8125rem',
                                             fontWeight: 600,
@@ -87,7 +89,7 @@ export default function ReferensiSection() {
                 ))
             )}
 
-            <div style={{
+            <div className="reference-notice" style={{
                 marginTop: '1rem',
                 padding: '1rem 1.25rem',
                 background: 'var(--hover-bg)',

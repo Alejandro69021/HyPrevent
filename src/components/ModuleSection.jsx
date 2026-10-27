@@ -34,11 +34,11 @@ export default function ModuleSection({ module }) {
             ) : null}
 
             {/* Step guide section */}
-            <div style={{ marginTop: '3rem' }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-dark)', marginBottom: '0.5rem' }}>
+            <div className="step-guide-section">
+                <h2 className="step-guide-title">
                     Panduan Langkah demi Langkah
                 </h2>
-                <p style={{ marginBottom: '2rem', color: 'var(--text-light)' }}>
+                <p className="step-guide-subtitle">
                     Ikuti panduan di bawah ini untuk memahami materi dengan lebih baik. Klik tombol langkah untuk melihat detailnya.
                 </p>
 
@@ -58,7 +58,7 @@ export default function ModuleSection({ module }) {
                 {/* Step content — aria-live announces step changes to screen readers */}
                 <div className="step-content" key={activeStep} aria-live="polite" aria-atomic="true">
                     <h3>{current.title}</h3>
-                    <p style={{ fontSize: '1.125rem', marginBottom: '1.5rem', color: 'var(--text-light)' }}>
+                    <p className="step-content-desc">
                         {current.description}
                     </p>
 
@@ -69,13 +69,13 @@ export default function ModuleSection({ module }) {
                         loading="lazy"
                     />
 
-                    <div style={{ marginTop: '1.5rem' }}>
-                        <h4 style={{ color: 'var(--secondary-color)', marginBottom: '1rem', fontWeight: 600 }}>
+                    <div className="step-details-container">
+                        <h4 className="step-details-heading">
                             Detail Langkah:
                         </h4>
-                        <ul style={{ paddingLeft: '1.5rem', lineHeight: 2 }}>
+                        <ul className="step-details-list">
                             {current.details.map((item, idx) => (
-                                <li key={idx} style={{ marginBottom: '0.5rem', color: 'var(--text-light)' }}>
+                                <li key={idx} className="step-details-item">
                                     {item}
                                 </li>
                             ))}
